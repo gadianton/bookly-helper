@@ -2,7 +2,7 @@
 
 Replays each test-set case through the real agent (so each message has its real conversation history),
 and at every message triages it with each model. Records: intent right or wrong, time, tokens, and every
-Jev error in full. Writes one JSON line per message to the path given (default checks/models.jsonl).
+Jev error in full. Writes one JSON line per message to the path given (default evals/benchmark/models.jsonl).
 """
 
 import copy
