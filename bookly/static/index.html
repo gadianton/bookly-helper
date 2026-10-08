@@ -162,14 +162,16 @@ async function send(text) {
 
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
 $('#panel-toggle').onchange = e => $('#panel').classList.toggle('on', e.target.checked);
-$('#shopper').onchange = () => { ready = startConversation(); };
+let switches = 0;  // a message queued before a shopper switch is dropped, not sent as the new shopper
+$('#shopper').onchange = () => { switches++; ready = startConversation(); };
 let sending = Promise.resolve();  // one turn at a time: two at once would share one conversation's state
 $('#form').onsubmit = e => {
   e.preventDefault();
   const text = $('#input').value.trim();
   if (!text) return;
   $('#input').value = '';
-  sending = sending.catch(() => {}).then(() => send(text));
+  const at = switches;
+  sending = sending.catch(() => {}).then(() => at === switches && send(text));
 };
 let ready = startConversation();
 </script>
