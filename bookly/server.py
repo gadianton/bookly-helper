@@ -25,6 +25,9 @@ settings = load_settings()
 store = Store(date.today())
 ledger = Ledger()  # shared, so an item returned in one conversation stays returned in the next
 conversations: dict[str, Conversation] = {}  # ponytail: in memory, lost on restart
+# ponytail: one turn at a time across every chat, so no two turns share a conversation or the ledger at once;
+# per-conversation locks plus a ledger lock if several people use one server
+turns = threading.Lock()
 
 
 class NewConversation(BaseModel):
@@ -64,7 +67,8 @@ def chat(body: ChatIn):
 
     def run():
         try:
-            out = convo.send(body.text, events.put)
+            with turns:
+                out = convo.send(body.text, events.put)
             events.put({"step": "done", **out})
         except Exception as e:  # noqa: BLE001 - the page must hear about a failed turn
             events.put({"step": "error", "error": f"{type(e).__name__}: {e}"})
