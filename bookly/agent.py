@@ -3,6 +3,7 @@ Each step goes out as an event dict through on_event, for the plain chat and the
 
 import json
 import re
+import threading
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -56,6 +57,7 @@ class Conversation:
         self.turn = 0
         self.profile = None
         self.handoff_record = None
+        self.lock = threading.Lock()  # one turn at a time: the storefront takes it around send
 
     def now(self) -> datetime:
         return self._now or datetime.now(ET)
@@ -119,10 +121,11 @@ class Conversation:
         emit("profile", start, **self.profile)
 
     def _context(self, intent_path, t) -> str:
-        pending = [{"offer_id": oid, "order_id": o["order_id"], "item": o["item"]["title"],
-                    "refund": str(o["quote"]["refund"]), "destination": o["quote"]["destination"],
-                    "exchange_offered": o["quote"]["exchange_offered"]}
-                   for oid, o in self.ledger.offers.items() if o["chat"] is self]
+        with self.ledger.lock:
+            pending = [{"offer_id": oid, "order_id": o["order_id"], "item": o["item"]["title"],
+                        "refund": str(o["quote"]["refund"]), "destination": o["quote"]["destination"],
+                        "exchange_offered": o["quote"]["exchange_offered"]}
+                       for oid, o in self.ledger.offers.items() if o["chat"] is self]
         ctx = {
             "shopper": self.store.name(self.shopper_id),
             "today": self.store.today.isoformat(),
@@ -191,10 +194,11 @@ class Conversation:
                     needs, reply = bool(b.input.get("needs_answer")), b.input.get("text", "")
                     # an offer this reply doesn't state and ask about can't be accepted: a yes would answer something else
                     # ponytail: "states it" = names its exact amount and needs an answer; the model wording can still fool it
-                    self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self
-                                          or o["turn"] != self.turn or needs and re.search(
-                                              rf"(?<![\d.,]){re.escape(str(o['quote']['refund']))}(?!\d)", reply)}
-                    offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
+                    with self.ledger.lock:
+                        self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self
+                                              or o["turn"] != self.turn or needs and re.search(
+                                                  rf"(?<![\d.,]){re.escape(str(o['quote']['refund']))}(?!\d)", reply)}
+                        offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
                     return self._finish(text, reply, path, emit, needs, offer)

@@ -3,6 +3,7 @@ Everything lives in memory, one Ledger per running program, so a restart forgets
 
 import itertools
 import secrets
+import threading
 
 from bookly.policy import OUR_ERROR, quote
 
@@ -15,8 +16,17 @@ class Ledger:
         self._shipping_refunded = set()  # (shopper_id, order_id)
         self._damaged = []  # shopper_id of each damaged-item return completed in this run
         self._ids = itertools.count(1)
+        self.lock = threading.RLock()  # the storefront shares one ledger across chats running at once
 
-    def quote(self, shopper_id, order, item, reason, condition, today, turn, claims=(), chat=None) -> dict:
+    def quote(self, *args, **kwargs) -> dict:
+        with self.lock:
+            return self._quote(*args, **kwargs)
+
+    def act(self, *args, **kwargs) -> dict:
+        with self.lock:
+            return self._act(*args, **kwargs)
+
+    def _quote(self, shopper_id, order, item, reason, condition, today, turn, claims=(), chat=None) -> dict:
         if (shopper_id, item["item_id"]) in self._returned:
             return {"result": "already returned", "why": f"{item['title']} was already returned", "sentence": ""}
         shipped = (shopper_id, order["id"]) in self._shipping_refunded
@@ -32,7 +42,7 @@ class Ledger:
             q = {**q, "offer_id": offer_id}
         return q
 
-    def act(self, shopper_id, offer_id, kind, turn, accepted: bool, chat=None) -> dict:
+    def _act(self, shopper_id, offer_id, kind, turn, accepted: bool, chat=None) -> dict:
         if kind not in ("refund", "exchange"):
             return {"result": "refused", "why": f"unknown kind {kind!r}: use refund or exchange"}
         offer = self.offers.get(offer_id)
