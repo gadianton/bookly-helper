@@ -55,14 +55,19 @@ def test_yes_accepts_only_an_offer_this_chat_stated(store, settings):
         convo.send("yes please", on_event)
         return results
 
-    stated = ask("A refund of $18.98 to your card. Shall I go ahead?", offer_id="OF-1")
+    stated = ask("A refund of $18.98 to your card. Shall I go ahead?", offer_ids=["OF-1"])
     assert yes_result(Ledger(), quote, stated, act) == ["done"]
-    assert yes_result(Ledger(), quote, ask("A refund of 18.98 USD to your card. Go ahead?", offer_id="OF-1"), act) == ["done"]
-    assert yes_result(Ledger(), quote, ask("Want a fresh copy instead?", offer_id="OF-1"), swap) == ["done"]
+    assert yes_result(Ledger(), quote, ask("A refund of 18.98 USD to your card. Go ahead?", offer_ids=["OF-1"]), act) == ["done"]
+    assert yes_result(Ledger(), quote, ask("Want a fresh copy instead?", offer_ids=["OF-1"]), swap) == ["done"]
+    # one reply can put two books' offers to the shopper
+    quote2 = ("return_quote", {"order_id": M, "item_id": "BL-10421-2", "condition": "not stated"})
+    swap2 = ("return_action", {"offer_id": "OF-2", "kind": "exchange"})
+    both = ask("Refunds for both books. Go ahead?", offer_ids=["OF-1", "OF-2"])
+    assert yes_result(Ledger(), quote, quote2, both, act, swap2) == ["done", "done"]
     # an offer the reply doesn't name with needs_answer set is dropped, whatever the text says
     assert yes_result(Ledger(), quote, ask("A refund of $18.98 to your card. Shall I go ahead?"), act) == ["refused"]
-    assert yes_result(Ledger(), quote, ask("Shall I go ahead?", offer_id="OF-9"), act) == ["refused"]
-    told = ("reply", {"text": "A refund of $18.98. Go ahead?", "needs_answer": False, "offer_id": "OF-1"})
+    assert yes_result(Ledger(), quote, ask("Shall I go ahead?", offer_ids=["OF-9"]), act) == ["refused"]
+    told = ("reply", {"text": "A refund of $18.98. Go ahead?", "needs_answer": False, "offer_ids": ["OF-1"]})
     assert yes_result(Ledger(), quote, told, act) == ["refused"]
     shared = Ledger()  # one storefront ledger: a second chat's turn 2 must not accept the first chat's turn-1 offer
     assert yes_result(shared, quote, stated, ("reply", {"text": "OK.", "needs_answer": False})) == []
