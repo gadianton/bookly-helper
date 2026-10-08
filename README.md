@@ -59,7 +59,8 @@ damaged-item claims, so a third goes to a person for review).
 - `[cutoffs]`: how confident Jev must be before an answer counts. Tuned on the test set: `clear = 0.4`, everything
   else (`intent`, `order`, `person`, `accept`, `angry`) `0.5`.
 
-On the test set, Jev picks the right kind of help for 94% of messages at a median of 192 ms; Haiku 90% at 956 ms.
+On the test set, Jev picks the right kind of help for 94% of messages at a median of 176 ms; Haiku 96% at 1,009 ms.
+About as accurate, so Jev is the default for speed and cost.
 Sonnet and Opus were measured too. [docs/benchmark.md](docs/benchmark.md) has the full comparison of accuracy,
 speed and cost, and every message each model got wrong.
 
@@ -90,10 +91,8 @@ The return policy is modelled on Barnes & Noble's (`bookly/policy.toml`). Detail
 
 The last test-set run passed all 31 cases with no wrong action and no misses. Gaps seen around it:
 
-- **Haiku standby reads "where's my order?" as unclear.** When Jev fails on that message, the shopper gets one
-  "status or return?" question they shouldn't need.
 - **Jev occasionally doesn't answer.** About 1 message in 49 during the test-set runs (reported as HTTP 503 "model is
   unavailable"); Haiku stands in, about 0.8 s slower.
-- **"I want to talk to a human" is triaged as unclear, not other**, by every model. Harmless: the separate
+- **"I want to talk to a human" is triaged as unclear, not other**, by Jev and Haiku. Harmless: the separate
   asks-for-a-person check hands off first.
 - The handoff wait message knows Bookly's hours but not public holidays.

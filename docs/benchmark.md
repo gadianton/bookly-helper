@@ -9,38 +9,43 @@ and the same seven questions. Cutoffs: intent 0.5, clear 0.4, the rest 0.5.
 
 | Model | Intent right | Median time | 9 in 10 under | Slowest | Errors | Cost per message | Per 10,000 messages |
 |---|---|---|---|---|---|---|---|
-| Jev 1.13 | 46/49 (94%) | 192 ms | 263 ms | 401 ms | 0 | $0.000053 | $0.53 |
-| Haiku 5.5 | 44/49 (90%) | 956 ms | 1,184 ms | 1,319 ms | 0 | $0.000256 | $2.56 |
-| Sonnet 5.5 | 47/49 (96%) | 1,610 ms | 2,674 ms | 9,256 ms | 0 | $0.0036 | $35.98 |
-| Opus 5.5 | 47/49 (96%) | 2,314 ms | 7,521 ms | 13,446 ms | 0 | $0.0073 | $72.59 |
+| Jev 1.13 | 46/49 (94%) | 176 ms | 240 ms | 369 ms | 0 | $0.000053 | $0.53 |
+| Haiku 5.5 | 47/49 (96%) | 1,009 ms | 1,299 ms | 1,472 ms | 0 | $0.000262 | $2.62 |
+| Sonnet 5.5 | 48/49 (98%) | 1,576 ms | 2,136 ms | 7,129 ms | 0 | $0.0037 | $37.42 |
+| Opus 5.5 | 48/49 (98%) | 2,256 ms | 4,424 ms | 12,413 ms | 0 | $0.0074 | $74.35 |
 
 For scale: Bookly's profile has 6,000 contacts a month. At 3 messages per contact (an assumption), triage costs
-about $1 a month on Jev, $5 on Haiku, $65 on Sonnet and $131 on Opus. All small next to ~$5 per human contact. The bigger difference is time: Jev answers before Haiku has
-started typing, and Sonnet and Opus have slow outliers of 9 to 13 seconds, far past Jev's 1.5 s limit.
+about $1 a month on Jev, $5 on Haiku, $67 on Sonnet and $134 on Opus. All small next to ~$5 per human contact. The bigger difference is time: Jev answers before Haiku has
+started typing, and Sonnet and Opus have slow outliers of 7 to 12 seconds, far past Jev's 1.5 s limit.
 
 On accuracy, 1 or 2 messages in 49 is within the noise of a single run. What the numbers support:
-Jev, Sonnet and Opus are about equally accurate here; Haiku is a little behind, and its misses are all one kind.
+all four models are about equally accurate here. Jev is chosen for speed (about 6x faster than Haiku at the median)
+and cost (about 5x cheaper), not for accuracy.
 
 ## Where each model went wrong
 
 | Message (case) | Expected | Jev | Haiku | Sonnet | Opus |
 |---|---|---|---|---|---|
-| "where's my order?" (status-which-order) | order status | right | unclear | right | right |
-| "where's my order?" (status-pick-after-question) | order status | right | unclear | right | right |
-| "where's my order?" (status-blue-one) | order status | right | unclear | right | right |
 | "the blue one" (status-blue-one) | unclear | order status | right | order status | order status |
 | "hmm, what about the other book?" (return-other-book-not-yes) | return | unclear | unclear | right | right |
-| "this is useless, I want to talk to a human" (tricky-asks-for-person) | other | unclear | unclear | unclear | unclear |
+| "this is useless, I want to talk to a human" (tricky-asks-for-person) | other | unclear | unclear | right | right |
 
 What the misses cost a shopper:
-- **Haiku on "where's my order?"** (3 of its 5 misses, and the same in every earlier run): Haiku reads "no order
-  named" as "not clear what you want". The shopper gets "is this about an order's status or a return?" when the
-  answer was obvious. One extra turn, no wrong action. This is the main reason Haiku is the standby, not the default.
 - **"the blue one"**: three models guess order status. Harmless: the order pick is "can't tell", so the agent still
   asks which order, then hands off.
 - **"what about the other book?"**: Jev and Haiku call it unclear; the agent asks one clarifying question.
-- **"I want to talk to a human"**: every model calls it unclear rather than other. Harmless: the asks-for-a-person
+- **"I want to talk to a human"**: Jev and Haiku call it unclear rather than other. Harmless: the asks-for-a-person
   answer (0.99) hands off first.
+
+### Earlier run: Haiku and "where's my order?"
+
+The first run (same day, before the fix below) had Haiku at 44/49 (90%). Three of its five misses were the same
+message, "where's my order?" with no order named, which Haiku read as unclear in every run. The shopper got "is
+this about an order's status or a return?" when the answer was obvious. Haiku's instructions now say that a request
+about an order with none named is still order status, and that miss is gone. The same run also changed the
+return-reason question to read only the latest message, so a damage claim for one book no longer carries over to the
+next; every model got both changes. Earlier figures: Jev 46/49 at 192 ms, Haiku 44/49 at 956 ms, Sonnet 47/49 at
+1,610 ms, Opus 47/49 at 2,314 ms.
 
 None of these misses caused a wrong refund, exchange or handoff: the test set passes 31 of 31 with no wrong action.
 
@@ -51,7 +56,7 @@ None of these misses caused a wrong refund, exchange or handoff: the test set pa
   only successful answers, so the error code was not saved.
 - In the three runs since (24 sample calls with a 10 s limit, and 2 x 49 benchmark calls at 1.5 s), Jev answered every
   call. Likely a brief overload on TypeSafe's side; that cause is a guess.
-- When it happens, Haiku answers that message instead: about 0.8 s slower, and on "where's my order?" an extra question.
+- When it happens, Haiku answers that message instead, about 0.8 s slower.
 
 ## Method and caveats
 
