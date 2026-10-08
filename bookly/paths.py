@@ -46,8 +46,8 @@ def pick_path(t: dict, s: dict) -> dict:
 
 def _orders_list(orders: list[dict]) -> str:
     return "\n".join(
-        f"- {', '.join(i['title'] for i in o['items'])} (ordered {date.fromisoformat(o['order_date']):%-d %B %Y})"
-        for o in orders  # the store keeps them newest first
+        f"- {', '.join(i['title'] for i in o['items'])} (ordered {d.day} {d:%B %Y})"  # %-d fails on Windows
+        for o in orders for d in [date.fromisoformat(o["order_date"])]  # the store keeps them newest first
     )
 
 
