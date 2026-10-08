@@ -1,0 +1,16 @@
+window_days = 30
+label_fee = 5.99
+fraud_limit = 3
+fraud_window_days = 90
+
+[sentences]
+needs_reason = "To check what I can offer, I need to know why you're returning it."
+not_returnable = "eBooks and other digital items can't be returned."
+not_delivered = "Items can be returned once they have been delivered."
+outside_window = "Items can be returned up to 30 days after delivery."
+ask_unread = "Books returned for a change of mind must be new and unread."
+used = "Books returned for a change of mind must be new and unread, so a member of our team will look at this one."
+changed_mind = "Books returned for a change of mind are refunded at the item price minus a $5.99 return label, and shipping isn't refunded."
+our_error = "If a book arrived damaged, defective or wrong, we send a free return label and refund the item price plus the original shipping once per order, or we can exchange it for the same title."
+store_credit = "Gift orders and PayPal orders are refunded as Bookly store credit."
+review = "This refund needs a quick review by a member of our team."
