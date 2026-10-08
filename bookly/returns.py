@@ -16,24 +16,25 @@ class Ledger:
         self._damaged = []  # shopper_id of each damaged-item return completed in this run
         self._ids = itertools.count(1)
 
-    def quote(self, shopper_id, order, item, reason, condition, today, turn, claims=()) -> dict:
+    def quote(self, shopper_id, order, item, reason, condition, today, turn, claims=(), chat=None) -> dict:
         if (shopper_id, item["item_id"]) in self._returned:
             return {"result": "already returned", "why": f"{item['title']} was already returned", "sentence": ""}
         shipped = (shopper_id, order["id"]) in self._shipping_refunded
         claims = list(claims) + [today] * self._damaged.count(shopper_id)  # this run's claims count too
         q = quote(order, item, reason, condition, today, shipped, claims)
         if q["result"] == "quote":
-            # a yes accepts only the latest offer: drop this shopper's offers from earlier turns
-            self.offers = {k: o for k, o in self.offers.items() if o["shopper_id"] != shopper_id or o["turn"] == turn}
+            # a yes accepts only the latest offer: drop this shopper's offers from earlier turns or other chats
+            self.offers = {k: o for k, o in self.offers.items()
+                           if o["shopper_id"] != shopper_id or (o["turn"] == turn and o["chat"] is chat)}
             offer_id = f"OF-{next(self._ids)}"
-            self.offers[offer_id] = {"shopper_id": shopper_id, "turn": turn, "order_id": order["id"], "item": item,
+            self.offers[offer_id] = {"shopper_id": shopper_id, "chat": chat, "turn": turn, "order_id": order["id"], "item": item,
                                      "reason": reason, "quote": q, "shipping": reason in OUR_ERROR and not shipped}
             q = {**q, "offer_id": offer_id}
         return q
 
-    def act(self, shopper_id, offer_id, kind, turn, accepted: bool) -> dict:
+    def act(self, shopper_id, offer_id, kind, turn, accepted: bool, chat=None) -> dict:
         offer = self.offers.get(offer_id)
-        if not offer or offer["shopper_id"] != shopper_id:
+        if not offer or offer["shopper_id"] != shopper_id or offer["chat"] is not chat:  # turns count per chat
             return {"result": "refused", "why": "no such offer"}
         if offer["turn"] == turn:
             return {"result": "refused", "why": "the offer was made in this turn; state it and wait for the customer's go-ahead"}

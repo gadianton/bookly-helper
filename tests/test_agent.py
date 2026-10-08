@@ -38,6 +38,30 @@ def test_kept_reason_stays_with_its_book(store, settings):
     assert results == ["quote", "needs reason", "quote"]
 
 
+def test_yes_accepts_only_an_offer_this_chat_stated(store, settings):
+    quote = ("return_quote", {"order_id": M, "item_id": "BL-10421-1", "condition": "not stated"})
+    act = ("return_action", {"offer_id": "OF-1", "kind": "refund"})
+    ask = lambda text: ("reply", {"text": text, "needs_answer": True})
+
+    def yes_result(ledger, *calls):
+        jev = fake_triage(answers(intent="return", order=M, reason="damaged"),
+                          answers(intent="return", order=M, accept=1.0))
+        convo = Conversation("maya", store, ledger, settings, now=NOW, anthropic=FakeReplyModel(*calls), jev=jev)
+        results = []
+        on_event = lambda e: e["step"] == "tool_call" and e["name"] == "return_action" and results.append(
+            e["result"]["result"])
+        convo.send("The Midnight Library arrived damaged", on_event)
+        convo.send("yes please", on_event)
+        return results
+
+    stated = ask("A refund of $18.98 to your card. Shall I go ahead?")
+    assert yes_result(Ledger(), quote, stated, act) == ["done"]
+    assert yes_result(Ledger(), quote, ask("Shall I go ahead?"), act) == ["refused"]
+    shared = Ledger()  # one storefront ledger: a second chat's turn 2 must not accept the first chat's turn-1 offer
+    assert yes_result(shared, quote, stated, ("reply", {"text": "OK.", "needs_answer": False})) == []
+    assert yes_result(shared, ask("Which book?"), act) == ["refused"]
+
+
 def test_other_shoppers_order_never_shown(store, settings):
     jev = fake_triage(answers(order=M), answers(order="names an order not in this list"))
     model = FakeReplyModel(("lookup_order", {"order_id": M}),

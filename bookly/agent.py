@@ -121,7 +121,7 @@ class Conversation:
         pending = [{"offer_id": oid, "order_id": o["order_id"], "item": o["item"]["title"],
                     "refund": str(o["quote"]["refund"]), "destination": o["quote"]["destination"],
                     "exchange_offered": o["quote"]["exchange_offered"]}
-                   for oid, o in self.ledger.offers.items() if o["shopper_id"] == self.shopper_id]
+                   for oid, o in self.ledger.offers.items() if o["chat"] is self]
         ctx = {
             "shopper": self.store.name(self.shopper_id),
             "today": self.store.today.isoformat(),
@@ -150,10 +150,11 @@ class Conversation:
                 s["reason_item"] = item["item_id"]
             claims = [date.fromisoformat(c["date"]) for c in self.store.damaged_claims(sid)]
             q = self.ledger.quote(sid, order, item, reason, args.get("condition", "not stated"),
-                                  self.store.today, self.turn, claims)
+                                  self.store.today, self.turn, claims, chat=self)
             return "return policy", q
         if name == "return_action":
-            return "returns", self.ledger.act(sid, args.get("offer_id"), args.get("kind", "refund"), self.turn, t["accepts"])
+            return "returns", self.ledger.act(sid, args.get("offer_id"), args.get("kind", "refund"), self.turn,
+                                              t["accepts"], chat=self)
         return None, {"result": f"unknown tool {name}"}
 
     def _run_model(self, text, path, t, emit):
@@ -167,7 +168,6 @@ class Conversation:
         messages = [{"role": role[m["role"]], "content": m["text"]} for m in self.history]
         messages.append({"role": "user", "content": text})
         system = self._context(path, t)
-        quoted = False
 
         for _ in range(MAX_MODEL_CALLS):
             start = time.perf_counter()
@@ -187,12 +187,14 @@ class Conversation:
             for b in uses:
                 start = time.perf_counter()
                 if b.name == "reply":
-                    needs = bool(b.input.get("needs_answer"))
-                    offer = quoted and any(o["turn"] == self.turn and o["shopper_id"] == self.shopper_id
-                                           for o in self.ledger.offers.values())
+                    needs, reply = bool(b.input.get("needs_answer")), b.input.get("text", "")
+                    # an offer this reply doesn't state can't be accepted: the customer's yes would answer something else
+                    self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self
+                                          or o["turn"] != self.turn or str(o["quote"]["refund"]) in reply}
+                    offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
-                    return self._finish(text, b.input.get("text", ""), path, emit, needs, offer)
+                    return self._finish(text, reply, path, emit, needs, offer)
                 if b.name == "handoff":
                     emit("tool_call", start, name="handoff", source=None, input=b.input, result="handed off")
                     return self._handoff(text, "reply model: " + b.input.get("reason", ""), emit, path)
@@ -203,7 +205,6 @@ class Conversation:
                 emit("tool_call", start, name=b.name, source=source, input=b.input, result=result)
                 if b.name == "return_quote" and result.get("result") == "needs a person":
                     return self._handoff(text, f"return policy: {result['why']}", emit, path)
-                quoted |= b.name == "return_quote" and result.get("result") == "quote"
                 results.append({"type": "tool_result", "tool_use_id": b.id, "content": json.dumps(result, default=str)})
             messages.append({"role": "user", "content": results})
         return self._handoff(text, "reply model did not finish its turn", emit, path)
