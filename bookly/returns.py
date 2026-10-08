@@ -33,9 +33,9 @@ class Ledger:
         claims = list(claims) + [today] * self._damaged.count(shopper_id)  # this run's claims count too
         q = quote(order, item, reason, condition, today, shipped, claims)
         if q["result"] == "quote":
-            # a yes accepts only the latest offer: drop this shopper's offers from earlier turns or other chats
+            # a yes accepts only the latest offer: drop this chat's offers from earlier turns; other chats keep theirs
             self.offers = {k: o for k, o in self.offers.items()
-                           if o["shopper_id"] != shopper_id or (o["turn"] == turn and o["chat"] is chat)}
+                           if o["shopper_id"] != shopper_id or o["chat"] is not chat or o["turn"] == turn}
             offer_id = f"OF-{next(self._ids)}"
             self.offers[offer_id] = {"shopper_id": shopper_id, "chat": chat, "turn": turn, "order_id": order["id"], "item": item,
                                      "reason": reason, "quote": q, "shipping": reason in OUR_ERROR and not shipped}

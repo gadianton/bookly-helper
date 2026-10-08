@@ -51,6 +51,17 @@ def test_yes_accepts_only_the_latest_offer(store):
     assert ledger.act("maya", again["offer_id"], "refund", turn=6, accepted=True)["result"] == "refused"
 
 
+def test_a_quote_in_one_chat_keeps_another_chats_offer(store):
+    ledger = Ledger()
+    order = _order(store)
+    midnight, klara = order["items"]
+    a, b = object(), object()
+    first = ledger.quote("maya", order, midnight, "changed mind", "confirmed unread", TODAY, turn=1, chat=a)
+    ledger.quote("maya", order, klara, "changed mind", "confirmed unread", TODAY, turn=3, chat=b)
+    assert ledger.act("maya", first["offer_id"], "refund", turn=2, accepted=True, chat=b)["result"] == "refused"
+    assert ledger.act("maya", first["offer_id"], "refund", turn=2, accepted=True, chat=a)["result"] == "done"
+
+
 def test_shipping_refunded_once_when_two_quotes_are_pending(store):
     ledger = Ledger()
     order = _order(store)
