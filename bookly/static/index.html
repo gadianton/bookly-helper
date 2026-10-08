@@ -137,10 +137,11 @@ function onEvent(e) {
 
 async function send(text) {
   await ready;
+  let sent = conversationId;
   add($('#msgs'), 'msg me', text);
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: conversationId, text})});
+    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text})});
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
   let buf = '';
   for (;;) {
@@ -149,19 +150,26 @@ async function send(text) {
     buf += value;
     const chunks = buf.split('\n\n');
     buf = chunks.pop();
-    for (const c of chunks) if (c.startsWith('data: ')) onEvent(JSON.parse(c.slice(6)));
+    for (const c of chunks) {
+      if (!c.startsWith('data: ')) continue;
+      if (conversationId !== sent) return reader.cancel();  // the shopper switched: drop the old turn
+      const e = JSON.parse(c.slice(6));
+      if (e.step === 'conversation') conversationId = sent = e.conversation_id;  // the server started a new one
+      else onEvent(e);
+    }
   }
 }
 
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
 $('#panel-toggle').onchange = e => $('#panel').classList.toggle('on', e.target.checked);
 $('#shopper').onchange = () => { ready = startConversation(); };
+let sending = Promise.resolve();  // one turn at a time: two at once would share one conversation's state
 $('#form').onsubmit = e => {
   e.preventDefault();
   const text = $('#input').value.trim();
   if (!text) return;
   $('#input').value = '';
-  send(text);
+  sending = sending.catch(() => {}).then(() => send(text));
 };
 let ready = startConversation();
 </script>

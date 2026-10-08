@@ -55,11 +55,12 @@ def new_conversation(body: NewConversation):
 
 @app.post("/chat")
 def chat(body: ChatIn):
+    events: queue.Queue = queue.Queue()
     convo = conversations.get(body.conversation_id or "")
-    if convo is None or convo.shopper_id != body.shopper:
+    if convo is None or convo.shopper_id != body.shopper:  # e.g. after a restart: the page adopts the new id
         convo_id = new_conversation(NewConversation(shopper=body.shopper))["conversation_id"]
         convo = conversations[convo_id]
-    events: queue.Queue = queue.Queue()
+        events.put({"step": "conversation", "conversation_id": convo_id})
 
     def run():
         try:
