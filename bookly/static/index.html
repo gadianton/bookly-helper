@@ -136,13 +136,15 @@ function onEvent(e) {
   if (line) add($('#panel'), `ev ev-${e.step}`, line);
 }
 
-async function send(text) {
+async function send(text, at) {
   await ready;
+  if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
   add($('#msgs'), 'msg me', text);
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text})});
+  if (!r.ok) throw new Error(`chat request failed: ${r.status}`);
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
   let buf = '';
   for (;;) {
@@ -153,7 +155,7 @@ async function send(text) {
     buf = chunks.pop();
     for (const c of chunks) {
       if (!c.startsWith('data: ')) continue;
-      if (conversationId !== sent) return reader.cancel();  // the shopper switched: drop the old turn
+      if (at !== switches || conversationId !== sent) return reader.cancel();  // the shopper switched: drop the old turn
       const e = JSON.parse(c.slice(6));
       if (e.step === 'conversation') conversationId = sent = e.conversation_id;  // the server started a new one
       else onEvent(e);
@@ -172,7 +174,8 @@ $('#form').onsubmit = e => {
   if (!text) return;
   $('#input').value = '';
   const at = switches;
-  sending = sending.catch(() => {}).then(() => at === switches && send(text));
+  sending = sending.then(() => at === switches && send(text, at))
+    .catch(() => at === switches && onEvent({step: 'error', error: 'the chat request failed'}));
 };
 let ready = startConversation();
 </script>
