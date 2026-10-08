@@ -2,7 +2,6 @@
 Each step goes out as an event dict through on_event, for the plain chat and the storefront panel."""
 
 import json
-import re
 import threading
 import time
 from datetime import date, datetime
@@ -33,7 +32,10 @@ _TOOLS = {
                 "input_schema": {"type": "object", "properties": {"reason": {"type": "string"}}, "required": ["reason"]}},
     "reply": {"description": "Send your reply to the customer. Ends your turn.",
               "input_schema": {"type": "object", "properties": {
-                  "text": {"type": "string"}, "needs_answer": {"type": "boolean"}}, "required": ["text", "needs_answer"]}},
+                  "text": {"type": "string"}, "needs_answer": {"type": "boolean"},
+                  "offer_id": {"type": "string", "description": "The pending offer this reply states and asks the "
+                               "customer to accept or decline. Leave it out when the reply asks about no offer."}},
+                  "required": ["text", "needs_answer"]}},
 }
 TOOLS_BY_PATH = {
     "order_status": ["lookup_order", "handoff", "reply"],
@@ -192,12 +194,11 @@ class Conversation:
                 start = time.perf_counter()
                 if b.name == "reply":
                     needs, reply = bool(b.input.get("needs_answer")), b.input.get("text", "")
-                    # an offer this reply doesn't state and ask about can't be accepted: a yes would answer something else
-                    # ponytail: "states it" = names its exact amount and needs an answer; the model wording can still fool it
+                    named = b.input.get("offer_id") if needs else None
+                    # an offer from this turn that the reply doesn't name and ask about can't be accepted: a yes would answer something else
                     with self.ledger.lock:
                         self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self
-                                              or o["turn"] != self.turn or needs and re.search(
-                                                  rf"(?<![\d.,]){re.escape(str(o['quote']['refund']))}(?!\d)", reply)}
+                                              or o["turn"] != self.turn or k == named}
                         offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
