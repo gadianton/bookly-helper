@@ -33,6 +33,8 @@ class Ledger:
         return q
 
     def act(self, shopper_id, offer_id, kind, turn, accepted: bool, chat=None) -> dict:
+        if kind not in ("refund", "exchange"):
+            return {"result": "refused", "why": f"unknown kind {kind!r}: use refund or exchange"}
         offer = self.offers.get(offer_id)
         if not offer or offer["shopper_id"] != shopper_id or offer["chat"] is not chat:  # turns count per chat
             return {"result": "refused", "why": "no such offer"}

@@ -16,7 +16,9 @@ def test_action_refuses_unconfirmed_or_same_turn_offer(store):
     assert ledger.act("maya", q["offer_id"], "refund", turn=1, accepted=True)["result"] == "refused"
     assert ledger.act("maya", q["offer_id"], "refund", turn=2, accepted=False)["result"] == "refused"
     assert ledger.act("riley", q["offer_id"], "refund", turn=2, accepted=True)["result"] == "refused"
+    assert ledger.act("maya", q["offer_id"], "credit", turn=2, accepted=True)["result"] == "refused"
     assert ledger.records == []
+    assert ledger.act("maya", q["offer_id"], "refund", turn=2, accepted=True)["result"] == "done"  # still open
 
 
 def test_item_cannot_be_returned_twice_and_shipping_refunded_once(store):
