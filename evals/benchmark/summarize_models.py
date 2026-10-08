@@ -8,7 +8,7 @@ from pathlib import Path
 # $ per million tokens (input, output). Anthropic: claude.com/pricing, 2026-10-08.
 # Jev: $0.042/M input, output free, per third-party write-ups (no TypeSafe pricing page); tokens from jev_tokens.py.
 PRICE = {"jev": (0.042, 0.0), "haiku": (0.10, 0.50), "sonnet": (2.0, 10.0), "opus": (4.0, 20.0)}
-JEV_TOKENS = {"input": 1268, "output": 309}  # mean over the 8 samples in jev_tokens.py
+JEV_TOKENS = {"input": 1268, "output": 309}  # mean over the 8 samples in jev_tokens.py, which have no chat history: a low estimate
 
 rows = [json.loads(l) for l in Path(sys.argv[1]).read_text().splitlines()]
 print(f"{len(rows)} messages\n")

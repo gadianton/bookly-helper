@@ -69,7 +69,9 @@ None of these misses caused a wrong refund, exchange or handoff: the test set pa
 - Prices: Anthropic from claude.com/pricing on 2026-10-08 (per million tokens, input/output): Haiku 5.5 $0.10/$0.50,
   Sonnet 5.5 $2/$10, Opus 5.5 $4/$20. Claude token counts are measured per call (Haiku about 1,600 in, 180 out).
 - Jev: $0.042 per million input tokens, output free, from third-party write-ups; TypeSafe has no public pricing page and
-  calls it an early-access price. Jev's own usage report gives about 1,268 input tokens per triage request.
+  calls it an early-access price. Jev's own usage report gives about 1,268 input tokens per triage request, measured
+  on the 8 sample messages with no earlier messages; the test-set requests also carry up to 6 earlier messages, so
+  Jev's cost here is a low estimate.
 
 ## Reproduce
 
