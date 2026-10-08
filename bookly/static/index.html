@@ -84,9 +84,10 @@ function add(parent, cls, text) {
 }
 
 async function startConversation() {
-  const shopper = $('#shopper').value;
+  const shopper = $('#shopper').value, at = switches;
   const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
   const c = await r.json();
+  if (at !== switches) return;  // the shopper switched again while this loaded: the later one shows
   conversationId = c.conversation_id;
   $('#msgs').textContent = '';
   $('#panel').textContent = '';
