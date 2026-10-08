@@ -50,7 +50,9 @@ def jev_questions(order_ids: list[str]) -> dict:
             criteria={**{o: None for o in order_ids}, NOT_LISTED: None, CANT_TELL: None},
         ),
         "reason": Choice(
-            instructions="Why does the customer want to return the book, going by the latest message and the conversation?",
+            # latest message only: code keeps an earlier reason for the book it was given for (bookly/agent.py)
+            instructions="Why does the customer want to return a book, going by their latest message only? "
+            "Pick 'not said' when the latest message gives no reason, even if an earlier message did.",
             criteria={r: None for r in REASONS},
         ),
     }
