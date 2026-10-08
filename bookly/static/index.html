@@ -166,7 +166,8 @@ async function send(text, at) {
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
 $('#panel-toggle').onchange = e => $('#panel').classList.toggle('on', e.target.checked);
 let switches = 0;  // a message queued before a shopper switch is dropped, not sent as the new shopper
-$('#shopper').onchange = () => { switches++; ready = startConversation(); };
+// a new shopper's turns don't wait for the old one's: it is another conversation and its stream is dropped
+$('#shopper').onchange = () => { switches++; sending = Promise.resolve(); ready = startConversation(); };
 let sending = Promise.resolve();  // one turn at a time: two at once would share one conversation's state
 $('#form').onsubmit = e => {
   e.preventDefault();
