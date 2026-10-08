@@ -45,6 +45,8 @@ def test_yes_accepts_only_the_latest_offer(store):
     assert ledger.act("maya", new["offer_id"], "refund", turn=3, accepted=True)["result"] == "done"
     again = ledger.quote("maya", order, midnight, "changed mind", "confirmed unread", TODAY, turn=4)
     assert again["offer_id"] not in (old["offer_id"], new["offer_id"])
+    # a yes two turns later (say, to "is it unread?") does not accept an offer the agent made before that
+    assert ledger.act("maya", again["offer_id"], "refund", turn=6, accepted=True)["result"] == "refused"
 
 
 def test_shipping_refunded_once_when_two_quotes_are_pending(store):

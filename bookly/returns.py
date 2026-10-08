@@ -37,6 +37,8 @@ class Ledger:
             return {"result": "refused", "why": "no such offer"}
         if offer["turn"] == turn:
             return {"result": "refused", "why": "the offer was made in this turn; state it and wait for the customer's go-ahead"}
+        if offer["turn"] != turn - 1:  # the customer's yes answers the agent's last reply only
+            return {"result": "refused", "why": "the offer was not in your last reply; quote it again and wait for the go-ahead"}
         if not accepted:
             return {"result": "refused", "why": "the customer's latest message does not accept the offer"}
         if (shopper_id, offer["item"]["item_id"]) in self._returned:
