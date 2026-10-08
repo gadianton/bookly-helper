@@ -118,6 +118,10 @@ def _haiku_tool(order_ids: list[str]) -> dict:
         if name == "clear":  # Haiku read "clear" as "has every detail"; it only gates intent
             props[HAIKU_CLEAR] = {"type": "boolean", "description": "False only when the message is too vague to tell "
                                   "what kind of help is wanted. A missing order or return reason still counts as true."}
+        elif name == "intent":  # Haiku read "where's my order?" (no order named) as unclear
+            props[name] = {"type": "string", "enum": INTENTS, "description": q.instructions +
+                           " A question about an order that names no order, such as \"where's my order?\", is "
+                           "'order status': which order is asked separately."}
         elif isinstance(q, Noul):
             props[name] = {"type": "boolean", "description": q.instructions}
         else:
