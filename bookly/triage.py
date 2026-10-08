@@ -1,8 +1,14 @@
-"""Triage: one Jev request with seven questions per customer message."""
+"""Triage: one Jev request with seven questions per customer message, Haiku as the standby,
+and code that turns the answers into one triage result."""
 
+import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from functools import lru_cache
+
+import anthropic
 
 from typesafe_sdk import Choice, Noul, RetryPolicy, Score, TypeSafeAPITimeoutError, TypeSafeClient, TypeSafeError
 
@@ -92,3 +98,90 @@ def ask_jev(message, history, orders, settings) -> tuple[dict, float]:
     except TypeSafeError as e:
         raise JevUnavailable(f"{type(e).__name__}: {e}") from None
     return normalize(r.answers), (time.perf_counter() - start) * 1000
+
+
+@lru_cache(maxsize=1)
+def anthropic_client(base_url: str) -> anthropic.Anthropic:
+    # base_url always comes from settings: the shell's ANTHROPIC_BASE_URL points somewhere local.
+    return anthropic.Anthropic(base_url=base_url)
+
+
+def _haiku_tool(order_ids: list[str]) -> dict:
+    props = {}
+    for name, q in jev_questions(order_ids).items():
+        if isinstance(q, Noul):
+            props[name] = {"type": "boolean", "description": q.instructions}
+        else:
+            options = list(q.criteria)
+            props[name] = {"type": "string", "enum": options, "description": q.instructions}
+    return {"name": "triage", "description": "Record the triage of the customer's latest message.",
+            "input_schema": {"type": "object", "properties": props, "required": list(props)}}
+
+
+def ask_haiku(message, history, orders, settings, client=None) -> tuple[dict, float]:
+    """Haiku standby: same fields by forced tool call; picks and yes/no are used as given."""
+    client = client or anthropic_client(settings["anthropic"]["base_url"])
+    start = time.perf_counter()
+    r = client.messages.create(
+        model=settings["anthropic"]["model"], max_tokens=400,
+        system="You triage customer messages for Bookly, an online bookstore. Answer every field.",
+        messages=[{"role": "user", "content": json.dumps(jev_state(message, history, orders))}],
+        tools=[_haiku_tool([o["id"] for o in orders])], tool_choice={"type": "tool", "name": "triage"},
+    )
+    a = next(b for b in r.content if b.type == "tool_use").input
+    raw = {name: {"pick": a[name]} for name in ("intent", "order", "reason")}
+    raw |= {name: {"p": 1.0 if a[name] else 0.0} for name in ("clear", "person", "accept")}
+    raw["mood"] = {"levels": {m: float(m == a["mood"]) for m in MOODS}}
+    return raw, (time.perf_counter() - start) * 1000
+
+
+def combine(raw, kept_order, kept_reason, order_ids, cutoffs) -> dict:
+    conf = lambda name: raw[name].get("confidence", 1.0)  # Haiku gives none: use its pick as is
+    intent = raw["intent"]["pick"]
+    if conf("intent") < cutoffs["intent"] or raw["clear"]["p"] < cutoffs["clear"]:
+        intent = "unclear"
+    order_pick = raw["order"]["pick"] if conf("order") >= cutoffs["order"] else CANT_TELL
+    if order_pick in order_ids:
+        effective = order_pick
+    elif order_pick == NOT_LISTED:
+        effective = CANT_TELL  # never fall back to the kept order: it would mix up orders
+    else:
+        effective = kept_order or CANT_TELL
+    levels = raw["mood"]["levels"]
+    reason = raw["reason"]["pick"]
+    return {
+        "intent": intent,
+        "clear_p": raw["clear"]["p"],
+        "person": raw["person"]["p"] >= cutoffs["person"],
+        "accepts": raw["accept"]["p"] >= cutoffs["accept"],
+        "mood": max(levels, key=levels.get),
+        "angry": levels["angry"] >= cutoffs["angry"],
+        "order_pick": order_pick,
+        "effective_order": effective,
+        "reason": reason if reason != "not said" else (kept_reason or "not said"),
+        "raw": raw,
+    }
+
+
+_pool = ThreadPoolExecutor(max_workers=4)
+
+
+def triage(message, history, orders, kept, settings, jev=ask_jev, haiku=ask_haiku) -> dict:
+    """kept: {"order": id | None, "reason": str | None} carried by the conversation."""
+    standby = None
+    if settings["triage_model"] == "jev":
+        future = _pool.submit(jev, message, history, orders, settings)
+        try:
+            raw, ms = future.result(timeout=settings["jev_time_limit_s"])
+            model = "jev"
+        except FutureTimeout:
+            standby = "Jev timed out"
+        except JevUnavailable as e:
+            standby = e.standby
+        except Exception:  # noqa: BLE001 - any Jev failure falls back to the standby
+            standby = "Jev error"
+    if settings["triage_model"] != "jev" or standby:
+        raw, ms = haiku(message, history, orders, settings)
+        model = "haiku"
+    t = combine(raw, kept.get("order"), kept.get("reason"), [o["id"] for o in orders], settings["cutoffs"])
+    return {"model": model, "standby": standby, **t, "ms": ms}
