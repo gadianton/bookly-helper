@@ -30,7 +30,10 @@ class Ledger:
         if (shopper_id, item["item_id"]) in self._returned:
             return {"result": "already returned", "why": f"{item['title']} was already returned", "sentence": ""}
         shipped = (shopper_id, order["id"]) in self._shipping_refunded
-        claims = list(claims) + [today] * self._damaged.count(shopper_id)  # this run's claims count too
+        # this run's claims count too, and so do pending damaged offers for other books that this quote leaves open
+        pending = {o["item"]["item_id"] for o in self.offers.values() if o["shopper_id"] == shopper_id
+                   and o["reason"] == "damaged" and (o["chat"] is not chat or o["turn"] == turn)} - {item["item_id"]}
+        claims = list(claims) + [today] * (self._damaged.count(shopper_id) + len(pending))
         q = quote(order, item, reason, condition, today, shipped, claims)
         if q["result"] == "quote":
             # a yes accepts only the latest offer: drop this chat's offers from earlier turns; other chats keep theirs
