@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookly</title>
+<style>
+  :root { --bg: #faf7f2; --fg: #2b2622; --muted: #7a716a; --card: #fff; --line: #e6dfd6; --accent: #8a3b12; --bot: #f1ece5; --me: #8a3b12; --me-fg: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1d1a18; --fg: #eee7df; --muted: #a59b92; --card: #272320; --line: #3a3430; --accent: #e08a5a; --bot: #312c28; --me: #e08a5a; --me-fg: #1d1a18; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font: 600 24px Georgia, serif; color: var(--accent); }
+  header label { color: var(--muted); font-size: 14px; }
+  main { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .book { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  .book b { display: block; font-family: Georgia, serif; }
+  .book span { color: var(--muted); font-size: 13px; }
+  #orders li { margin: 4px 0; }
+  #orders small { color: var(--muted); }
+  #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
+  #panel.on { display: block; }
+  .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .ev-triage, .ev-standby { color: var(--accent); }
+  .ev-turn { font-weight: 600; margin-top: 8px; }
+  #bubble { position: fixed; right: 16px; bottom: 16px; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--accent); color: var(--me-fg); font-size: 24px; cursor: pointer; }
+  #chat { display: none; position: fixed; right: 16px; bottom: 84px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--line); border-radius: 12px; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  #chat.open { display: flex; }
+  #chat header { padding: 10px 12px; }
+  #msgs { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .msg { padding: 8px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; }
+  .me { align-self: flex-end; background: var(--me); color: var(--me-fg); }
+  .bot { align-self: flex-start; background: var(--bot); }
+  form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+  #input { flex: 1; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
+  #send { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--me-fg); font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bookly</h1>
+  <div>
+    <label>Signed in as
+      <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
+    </label>
+    <label><input type="checkbox" id="panel-toggle"> Agent panel</label>
+  </div>
+</header>
+<main>
+  <section>
+    <h2>New this week</h2>
+    <div class="shelf">
+      <div class="book"><b>The Midnight Library</b><span>Matt Haig · $14.99</span></div>
+      <div class="book"><b>Circe</b><span>Madeline Miller · $17.99</span></div>
+      <div class="book"><b>Klara and the Sun</b><span>Kazuo Ishiguro · $16.99</span></div>
+      <div class="book"><b>Fourth Wing</b><span>Rebecca Yarros · $19.99</span></div>
+    </div>
+    <h2>Your orders</h2>
+    <ul id="orders"></ul>
+  </section>
+  <aside id="panel" aria-label="Agent panel"></aside>
+</main>
+
+<button id="bubble" aria-label="Open chat">&#128172;</button>
+<div id="chat" role="dialog" aria-label="Bookly chat">
+  <header><b>Bookly help</b></header>
+  <div id="msgs" aria-live="polite"></div>
+  <form id="form"><input id="input" autocomplete="off" placeholder="Ask about an order or a return"><button id="send">Send</button></form>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let conversationId = null;
+
+function add(parent, cls, text) {
+  const el = document.createElement('div');
+  el.className = cls;
+  el.textContent = text;
+  parent.appendChild(el);
+  parent.scrollTop = parent.scrollHeight;
+  return el;
+}
+
+async function startConversation() {
+  const shopper = $('#shopper').value;
+  const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
+  const c = await r.json();
+  conversationId = c.conversation_id;
+  $('#msgs').textContent = '';
+  $('#panel').textContent = '';
+  add($('#panel'), 'ev ev-turn', `new conversation: ${c.name}`);
+  $('#orders').innerHTML = '';
+  for (const o of c.orders) {
+    const li = document.createElement('li');
+    li.textContent = `${o.titles.join(', ')} `;
+    const small = document.createElement('small');
+    small.textContent = `${o.id} · ${o.status}`;
+    li.appendChild(small);
+    $('#orders').appendChild(li);
+  }
+}
+
+const n2 = x => Number(x).toFixed(2);
+function describe(e) {
+  const ms = `${Math.round(e.ms)} ms`;
+  switch (e.step) {
+    case 'triage': {
+      const parts = Object.entries(e.answers).map(([k, a]) =>
+        'pick' in a ? `${k}=${a.pick}` + (a.confidence != null ? ` (${n2(a.confidence)})` : '')
+        : 'p' in a ? `${k}=${n2(a.p)}`
+        : `${k}=` + Object.entries(a.levels).map(([l, v]) => `${l} ${n2(v)}`).join('/'));
+      return `triage [${e.model}, ${Math.round(e.model_ms)} ms]: ${parts.join(', ')}\n  -> ` +
+        Object.entries(e.result).map(([k, v]) => `${k}=${v}`).join(', ');
+    }
+    case 'standby': return `standby: ${e.why} (${e.detail}, ${ms})`;
+    case 'path': return `path: ${e.path} (${e.reason}) ${ms}`;
+    case 'profile': return 'profile:\n' + [...e.past_chats, ...e.preferences]
+      .map(x => `  [${x.source}] ${x.summary || x.preference}`).join('\n');
+    case 'tools_offered': return `tools offered: ${e.tools.join(', ')}`;
+    case 'model_call': return `reply model call: ${ms}`;
+    case 'tool_call': return `tool ${e.name} [${e.source}] ${JSON.stringify(e.input)} -> ${JSON.stringify(e.result)} ${ms}`;
+    case 'handoff': return `handoff: ${e.reason}`;
+    case 'tag': return `tag: ${e.tag}`;
+    case 'error': return `error: ${e.error}`;
+    default: return null;
+  }
+}
+
+function onEvent(e) {
+  if (e.step === 'reply') add($('#msgs'), 'msg bot', e.text);
+  if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+  const line = describe(e);
+  if (line) add($('#panel'), `ev ev-${e.step}`, line);
+}
+
+async function send(text) {
+  await ready;
+  add($('#msgs'), 'msg me', text);
+  add($('#panel'), 'ev ev-turn', `> ${text}`);
+  const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: conversationId, text})});
+  const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = '';
+  for (;;) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    buf += value;
+    const chunks = buf.split('\n\n');
+    buf = chunks.pop();
+    for (const c of chunks) if (c.startsWith('data: ')) onEvent(JSON.parse(c.slice(6)));
+  }
+}
+
+$('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
+$('#panel-toggle').onchange = e => $('#panel').classList.toggle('on', e.target.checked);
+$('#shopper').onchange = () => { ready = startConversation(); };
+$('#form').onsubmit = e => {
+  e.preventDefault();
+  const text = $('#input').value.trim();
+  if (!text) return;
+  $('#input').value = '';
+  send(text);
+};
+let ready = startConversation();
+</script>
+</body>
+</html>
