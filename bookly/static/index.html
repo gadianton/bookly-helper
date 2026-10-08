@@ -137,7 +137,7 @@ function onEvent(e) {
 }
 
 async function send(text, at) {
-  await ready;
+  await ready.catch(() => (ready = startConversation()));  // the conversation failed to load: try again
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
   add($('#msgs'), 'msg me', text);
