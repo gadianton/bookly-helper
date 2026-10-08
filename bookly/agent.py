@@ -75,7 +75,7 @@ class Conversation:
         t = triage(text, self.history[-self.settings["history_messages"]:], self.orders,
                    {"order": s["kept_order"], "reason": s["kept_reason"]}, self.settings, jev=self.jev, haiku=haiku)
         if t["standby"]:
-            emit("standby", start, why=t["standby"])
+            emit("standby", start, why=t["standby"], detail=t["standby_why"])
         emit("triage", start, model=t["model"], answers=t["raw"], model_ms=round(t["ms"], 1),
              result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts", "mood", "angry")})
         if t["effective_order"] in {o["id"] for o in self.orders}:

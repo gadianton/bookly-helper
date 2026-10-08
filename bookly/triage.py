@@ -10,7 +10,8 @@ from functools import lru_cache
 
 import anthropic
 
-from typesafe_sdk import Choice, Noul, RetryPolicy, Score, TypeSafeAPITimeoutError, TypeSafeClient, TypeSafeError
+from typesafe_sdk import (Choice, Noul, RetryPolicy, Score, TypeSafeAPITimeoutError, TypeSafeAuthenticationError,
+                          TypeSafeClient, TypeSafeError)
 
 INTENTS = ["order status", "return", "other", "unclear"]
 MOODS = ["calm", "annoyed", "angry"]
@@ -95,8 +96,10 @@ def ask_jev(message, history, orders, settings) -> tuple[dict, float]:
                                     timeout=settings["jev_time_limit_s"])
     except TypeSafeAPITimeoutError as e:
         raise JevUnavailable(str(e), "Jev timed out") from None
-    except TypeSafeError as e:
+    except TypeSafeAuthenticationError as e:
         raise JevUnavailable(f"{type(e).__name__}: {e}") from None
+    except TypeSafeError as e:  # e.g. an occasional 503 "model is unavailable"
+        raise JevUnavailable(f"{type(e).__name__}: {e}", "Jev error") from None
     return normalize(r.answers), (time.perf_counter() - start) * 1000
 
 
@@ -106,10 +109,16 @@ def anthropic_client(base_url: str) -> anthropic.Anthropic:
     return anthropic.Anthropic(base_url=base_url)
 
 
+HAIKU_CLEAR = "kind_of_help_is_clear"
+
+
 def _haiku_tool(order_ids: list[str]) -> dict:
     props = {}
     for name, q in jev_questions(order_ids).items():
-        if isinstance(q, Noul):
+        if name == "clear":  # Haiku read "clear" as "has every detail"; it only gates intent
+            props[HAIKU_CLEAR] = {"type": "boolean", "description": "False only when the message is too vague to tell "
+                                  "what kind of help is wanted. A missing order or return reason still counts as true."}
+        elif isinstance(q, Noul):
             props[name] = {"type": "boolean", "description": q.instructions}
         else:
             options = list(q.criteria)
@@ -129,7 +138,8 @@ def ask_haiku(message, history, orders, settings, client=None) -> tuple[dict, fl
         tools=[_haiku_tool([o["id"] for o in orders])], tool_choice={"type": "tool", "name": "triage"},
     )
     a = next(b for b in r.content if b.type == "tool_use").input
-    raw = {name: {"pick": a[name]} for name in ("intent", "order", "reason")}
+    a["clear"] = a.get(HAIKU_CLEAR, True)
+    raw ={name: {"pick": a[name]} for name in ("intent", "order", "reason")}
     raw |= {name: {"p": 1.0 if a[name] else 0.0} for name in ("clear", "person", "accept")}
     raw["mood"] = {"levels": {m: float(m == a["mood"]) for m in MOODS}}
     return raw, (time.perf_counter() - start) * 1000
@@ -163,25 +173,25 @@ def combine(raw, kept_order, kept_reason, order_ids, cutoffs) -> dict:
     }
 
 
-_pool = ThreadPoolExecutor(max_workers=4)
+_pool = ThreadPoolExecutor(max_workers=16)  # a queued call would eat into Jev's time limit
 
 
 def triage(message, history, orders, kept, settings, jev=ask_jev, haiku=ask_haiku) -> dict:
     """kept: {"order": id | None, "reason": str | None} carried by the conversation."""
-    standby = None
+    standby = why = None
     if settings["triage_model"] == "jev":
         future = _pool.submit(jev, message, history, orders, settings)
         try:
             raw, ms = future.result(timeout=settings["jev_time_limit_s"])
             model = "jev"
         except FutureTimeout:
-            standby = "Jev timed out"
+            standby, why = "Jev timed out", f"over {settings['jev_time_limit_s']} s"
         except JevUnavailable as e:
-            standby = e.standby
-        except Exception:  # noqa: BLE001 - any Jev failure falls back to the standby
-            standby = "Jev error"
+            standby, why = e.standby, str(e)
+        except Exception as e:  # noqa: BLE001 - any Jev failure falls back to the standby
+            standby, why = "Jev error", f"{type(e).__name__}: {e}"
     if settings["triage_model"] != "jev" or standby:
         raw, ms = haiku(message, history, orders, settings)
         model = "haiku"
     t = combine(raw, kept.get("order"), kept.get("reason"), [o["id"] for o in orders], settings["cutoffs"])
-    return {"model": model, "standby": standby, **t, "ms": ms}
+    return {"model": model, "standby": standby, "standby_why": why, **t, "ms": ms}

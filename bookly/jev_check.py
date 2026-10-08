@@ -41,8 +41,8 @@ def main() -> int:
         try:
             answers, ms = ask_jev(msg, [], orders, settings)
         except JevUnavailable as e:
-            if e.standby == "Jev timed out":
-                print(f"{msg} | timed out | {e}")
+            if e.standby != "Jev unavailable":  # a timeout or a one-off server error: note it, go on
+                print(f"{msg} | {e.standby} | {e}")
                 continue
             print(f"Jev unavailable: {e}")
             return 1
