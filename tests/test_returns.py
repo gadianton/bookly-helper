@@ -33,3 +33,36 @@ def test_item_cannot_be_returned_twice_and_shipping_refunded_once(store):
     assert len(ledger.records) == 1
 
     assert Ledger().quote("maya", order, midnight, "damaged", "not stated", TODAY, turn=1)["result"] == "quote"
+
+
+def test_yes_accepts_only_the_latest_offer(store):
+    ledger = Ledger()
+    order = _order(store)
+    midnight, klara = order["items"]
+    old = ledger.quote("maya", order, midnight, "changed mind", "confirmed unread", TODAY, turn=1)
+    new = ledger.quote("maya", order, klara, "changed mind", "confirmed unread", TODAY, turn=2)
+    assert ledger.act("maya", old["offer_id"], "refund", turn=3, accepted=True)["result"] == "refused"
+    assert ledger.act("maya", new["offer_id"], "refund", turn=3, accepted=True)["result"] == "done"
+    again = ledger.quote("maya", order, midnight, "changed mind", "confirmed unread", TODAY, turn=4)
+    assert again["offer_id"] not in (old["offer_id"], new["offer_id"])
+
+
+def test_shipping_refunded_once_when_two_quotes_are_pending(store):
+    ledger = Ledger()
+    order = _order(store)
+    midnight, klara = order["items"]
+    a = ledger.quote("maya", order, midnight, "damaged", "not stated", TODAY, turn=1)
+    b = ledger.quote("maya", order, klara, "damaged", "not stated", TODAY, turn=1)
+    assert ledger.act("maya", a["offer_id"], "refund", turn=2, accepted=True)["result"] == "done"
+    assert ledger.act("maya", b["offer_id"], "refund", turn=2, accepted=True)["result"] == "refused"
+    assert len(ledger.records) == 1
+
+
+def test_damaged_returns_this_run_count_toward_the_review(store):
+    ledger = Ledger()
+    order = _order(store)
+    midnight, klara = order["items"]
+    q = ledger.quote("maya", order, midnight, "damaged", "not stated", TODAY, turn=1, claims=[TODAY])
+    assert ledger.act("maya", q["offer_id"], "exchange", turn=2, accepted=True)["result"] == "done"
+    second = ledger.quote("maya", order, klara, "damaged", "not stated", TODAY, turn=3, claims=[TODAY])
+    assert second["result"] == "needs a person"
