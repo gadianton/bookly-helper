@@ -2,6 +2,7 @@
 Each step goes out as an event dict through on_event, for the plain chat and the storefront panel."""
 
 import json
+import re
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -188,9 +189,11 @@ class Conversation:
                 start = time.perf_counter()
                 if b.name == "reply":
                     needs, reply = bool(b.input.get("needs_answer")), b.input.get("text", "")
-                    # an offer this reply doesn't state can't be accepted: the customer's yes would answer something else
+                    # an offer this reply doesn't state and ask about can't be accepted: a yes would answer something else
+                    # ponytail: "states it" = names its exact amount and needs an answer; the model wording can still fool it
                     self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self
-                                          or o["turn"] != self.turn or str(o["quote"]["refund"]) in reply}
+                                          or o["turn"] != self.turn or needs and re.search(
+                                              rf"(?<![\d.,]){re.escape(str(o['quote']['refund']))}(?!\d)", reply)}
                     offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"

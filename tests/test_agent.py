@@ -57,6 +57,9 @@ def test_yes_accepts_only_an_offer_this_chat_stated(store, settings):
     stated = ask("A refund of $18.98 to your card. Shall I go ahead?")
     assert yes_result(Ledger(), quote, stated, act) == ["done"]
     assert yes_result(Ledger(), quote, ask("Shall I go ahead?"), act) == ["refused"]
+    assert yes_result(Ledger(), quote, ask("Shall I refund $118.98?"), act) == ["refused"]
+    told = ("reply", {"text": "The Midnight Library cost $18.98.", "needs_answer": False})
+    assert yes_result(Ledger(), quote, told, act) == ["refused"]
     shared = Ledger()  # one storefront ledger: a second chat's turn 2 must not accept the first chat's turn-1 offer
     assert yes_result(shared, quote, stated, ("reply", {"text": "OK.", "needs_answer": False})) == []
     assert yes_result(shared, ask("Which book?"), act) == ["refused"]
