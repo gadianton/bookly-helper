@@ -74,6 +74,21 @@ def test_yes_accepts_only_an_offer_this_chat_stated(store, settings):
     assert yes_result(shared, ask("Which book?"), act) == ["refused"]
 
 
+def test_yes_accepts_an_offer_restated_in_the_last_reply(store, settings):
+    quote = ("return_quote", {"order_id": M, "item_id": "BL-10421-1", "condition": "not stated"})
+    stated = ("reply", {"text": "A refund of $18.98 to your card. Go ahead?", "needs_answer": True, "offer_ids": ["OF-1"]})
+    act = ("return_action", {"offer_id": "OF-1", "kind": "refund"})
+    jev = fake_triage(answers(intent="return", order=M, reason="damaged"), answers(intent="return", order=M),
+                      answers(intent="return", order=M, accept=1.0))
+    convo = _convo(store, settings, jev, FakeReplyModel(quote, stated, stated, act))
+    results = []
+    on_event = lambda e: e["step"] == "tool_call" and e["name"] == "return_action" and results.append(e["result"]["result"])
+    convo.send("The Midnight Library arrived damaged", on_event)
+    convo.send("is the return label free?", on_event)
+    convo.send("ok, yes", on_event)
+    assert results == ["done"]
+
+
 def test_other_shoppers_order_never_shown(store, settings):
     jev = fake_triage(answers(order=M), answers(order="names an order not in this list"))
     model = FakeReplyModel(("lookup_order", {"order_id": M}),

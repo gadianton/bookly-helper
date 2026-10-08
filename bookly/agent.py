@@ -201,6 +201,9 @@ class Conversation:
                     with self.ledger.lock:
                         self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self
                                               or o["turn"] != self.turn or k in named}
+                        for k in named & self.ledger.offers.keys():  # an earlier offer restated now: the next yes answers it
+                            if self.ledger.offers[k]["chat"] is self:
+                                self.ledger.offers[k]["turn"] = self.turn
                         offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
