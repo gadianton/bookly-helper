@@ -5,7 +5,7 @@ import itertools
 import secrets
 import threading
 
-from bookly.policy import OUR_ERROR, quote
+from bookly.policy import OUR_ERROR, POLICY, damaged_claims_count, quote
 
 
 class Ledger:
@@ -30,20 +30,21 @@ class Ledger:
         if (shopper_id, item["item_id"]) in self._returned:
             return {"result": "already returned", "why": f"{item['title']} was already returned", "sentence": ""}
         shipped = (shopper_id, order["id"]) in self._shipping_refunded
-        # this run's claims count too, and so do pending damaged offers for other books that this quote leaves open
-        pending = {o["item"]["item_id"] for o in self.offers.values() if o["shopper_id"] == shopper_id
-                   and o["reason"] == "damaged" and (o["chat"] is not chat or o["turn"] == turn)} - {item["item_id"]}
-        claims = list(claims) + [today] * (self._damaged.count(shopper_id) + len(pending))
-        q = quote(order, item, reason, condition, today, shipped, claims)
+        claims = list(claims)
+        q = quote(order, item, reason, condition, today, shipped, self._claims(shopper_id, claims, today))
         if q["result"] == "quote":
             # a yes accepts only the latest offer: drop this chat's offers from earlier turns; other chats keep theirs
             self.offers = {k: o for k, o in self.offers.items()
                            if o["shopper_id"] != shopper_id or o["chat"] is not chat or o["turn"] == turn}
             offer_id = f"OF-{next(self._ids)}"
             self.offers[offer_id] = {"shopper_id": shopper_id, "chat": chat, "turn": turn, "order_id": order["id"], "item": item,
-                                     "reason": reason, "quote": q, "shipping": reason in OUR_ERROR and not shipped}
+                                     "reason": reason, "quote": q, "shipping": reason in OUR_ERROR and not shipped,
+                                     "claims": claims, "today": today}
             q = {**q, "offer_id": offer_id}
         return q
+
+    def _claims(self, shopper_id, claims, today) -> list:
+        return claims + [today] * self._damaged.count(shopper_id)  # this run's damaged returns count too
 
     def _act(self, shopper_id, offer_id, kind, turn, accepted: bool, chat=None) -> dict:
         if kind not in ("refund", "exchange"):
@@ -64,6 +65,9 @@ class Ledger:
             return {"result": "refused", "why": "no exchange was offered"}
         if kind == "refund" and offer["shipping"] and (shopper_id, offer["order_id"]) in self._shipping_refunded:
             return {"result": "refused", "why": "this order's shipping was already refunded; quote this item again"}
+        if offer["reason"] == "damaged" and damaged_claims_count(  # damaged returns done since the quote count too
+                self._claims(shopper_id, offer["claims"], offer["today"]), offer["today"]) >= POLICY["fraud_limit"]:
+            return {"result": "refused", "why": "damaged-item claims reached the review limit since the quote; quote this item again"}
 
         self._returned.add((shopper_id, offer["item"]["item_id"]))
         if kind == "refund" and offer["reason"] in OUR_ERROR:

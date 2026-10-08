@@ -83,12 +83,20 @@ def test_damaged_returns_this_run_count_toward_the_review(store):
     assert second["result"] == "needs a person"
 
 
-def test_pending_damaged_offers_count_toward_the_review(store):
+def test_damaged_offers_quoted_together_still_reach_the_review(store):
     ledger = Ledger()
     order = _order(store)
     midnight, klara = order["items"]
-    assert ledger.quote("maya", order, midnight, "damaged", "not stated", TODAY, turn=1, claims=[TODAY])["result"] == "quote"
-    assert ledger.quote("maya", order, midnight, "damaged", "not stated", TODAY, turn=1, claims=[TODAY])["result"] == "quote"
-    assert ledger.quote("maya", order, klara, "damaged", "not stated", TODAY, turn=1, claims=[TODAY])["result"] == "needs a person"
-    # this chat's offer from an earlier turn is dropped by the new quote, so it doesn't count
-    assert ledger.quote("maya", order, klara, "damaged", "not stated", TODAY, turn=2, claims=[TODAY])["result"] == "quote"
+    a = ledger.quote("maya", order, midnight, "damaged", "not stated", TODAY, turn=1, claims=[TODAY])
+    b = ledger.quote("maya", order, klara, "damaged", "not stated", TODAY, turn=1, claims=[TODAY])
+    assert ledger.act("maya", a["offer_id"], "exchange", turn=2, accepted=True)["result"] == "done"
+    assert ledger.act("maya", b["offer_id"], "exchange", turn=2, accepted=True)["result"] == "refused"
+    assert ledger.quote("maya", order, klara, "damaged", "not stated", TODAY, turn=2, claims=[TODAY])["result"] == "needs a person"
+
+
+def test_an_abandoned_damaged_offer_does_not_count(store):
+    ledger = Ledger()
+    order = _order(store)
+    midnight, klara = order["items"]
+    ledger.quote("maya", order, midnight, "damaged", "not stated", TODAY, turn=1, claims=[TODAY], chat=object())
+    assert ledger.quote("maya", order, klara, "damaged", "not stated", TODAY, turn=1, claims=[TODAY])["result"] == "quote"
