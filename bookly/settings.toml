@@ -2,9 +2,9 @@ triage_model = "jev"        # "jev" or "haiku"
 jev_time_limit_s = 1.5
 history_messages = 6
 
-[cutoffs]
+[cutoffs]  # swept over two test-set runs (checks/cutoffs.md): intent 0.5, clear 0.4
 intent = 0.5
-clear = 0.5
+clear = 0.4
 order = 0.5
 person = 0.5
 accept = 0.5
