@@ -10,7 +10,7 @@ NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
 
 def new_state() -> dict:
     return {"handed_off": False, "last_reply_kind": None, "last_model_intent": None,
-            "kept_order": None, "kept_reason": None, "tag": None}
+            "kept_order": None, "kept_reason": None, "reason_item": None, "tag": None}
 
 
 def pick_path(t: dict, s: dict) -> dict:

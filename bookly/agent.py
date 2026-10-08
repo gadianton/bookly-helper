@@ -80,8 +80,8 @@ class Conversation:
              result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts", "mood", "angry")})
         if t["effective_order"] in {o["id"] for o in self.orders}:
             s["kept_order"] = t["effective_order"]
-        if t["reason"] != "not said":
-            s["kept_reason"] = t["reason"]
+        if t["raw"]["reason"]["pick"] != "not said":  # a reason said now applies to the next book quoted
+            s["kept_reason"], s["reason_item"] = t["raw"]["reason"]["pick"], None
 
         start = time.perf_counter()
         p = pick_path(t, s)
@@ -143,8 +143,13 @@ class Conversation:
             item = next((i for i in order.get("items", []) if i["item_id"] == args.get("item_id")), None)
             if not item:
                 return "orders", {"result": "not found"}
+            reason, s = t["reason"], self.state
+            if t["raw"]["reason"]["pick"] == "not said" and s["reason_item"] not in (None, item["item_id"]):
+                reason = "not said"  # the kept reason was given for another book: ask for this one's
+            if reason != "not said":
+                s["reason_item"] = item["item_id"]
             claims = [date.fromisoformat(c["date"]) for c in self.store.damaged_claims(sid)]
-            q = self.ledger.quote(sid, order, item, t["reason"], args.get("condition", "not stated"),
+            q = self.ledger.quote(sid, order, item, reason, args.get("condition", "not stated"),
                                   self.store.today, self.turn, claims)
             return "return policy", q
         if name == "return_action":
