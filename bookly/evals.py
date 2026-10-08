@@ -151,7 +151,9 @@ def main() -> int:
             jev += f", {n - len(jev_ok)} not answered"
     else:
         jev = "jev unavailable"
-    print(f"triage accuracy: {jev} | haiku {haiku_right}/{n} ({100 * haiku_right / max(n, 1):.0f}%)")
+    unscored = sum(len(c["messages"]) for c in cases) - n  # a failed case keeps none of its rows
+    print(f"triage accuracy: {jev} | haiku {haiku_right}/{n} ({100 * haiku_right / max(n, 1):.0f}%)"
+          + (f" | {unscored} messages not scored: their case failed" if unscored else ""))
     for r in rows:
         if r["jev"] not in (None, r["expected"]) or r["haiku"] != r["expected"]:
             print(f"  {r['case']}: {r['text']!r} expected {r['expected']}, jev {r['jev']}, haiku {r['haiku']}")
