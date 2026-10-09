@@ -45,7 +45,7 @@ def test_book_buttons_skip_returned_and_grey_out_ebooks(store):
     maya = store.orders("maya")
     books = choices({"path": "clarify_book", "intent": "return"}, maya, lambda item: False)
     assert [(b["label"], b.get("pick")) for b in books] == [
-        ("Project Hail Mary (eBook) (eBooks can't be returned)", None),
+        ("Project Hail Mary (eBooks can't be returned)", None),
         ("The Little Prince", {"intent": "return", "order": "BL-10498", "item": "BL-10498-1"}),
         ("Lessons in Chemistry", {"intent": "return", "order": "BL-10477", "item": "BL-10477-1"}),
         ("The Midnight Library", {"intent": "return", "order": "BL-10421", "item": "BL-10421-1"}),
@@ -64,7 +64,7 @@ def test_book_buttons_skip_returned_and_grey_out_ebooks(store):
     assert ledger.returned("maya", "BL-10498-1") and not ledger.returned("maya", "BL-10421-1")
     after = choices({"path": "clarify_book", "intent": "return"}, maya, lambda item: ledger.returned("maya", item))
     assert "The Little Prince" not in [b["label"] for b in after]
-    assert len(after) == 7 and after[0]["label"].startswith("Project Hail Mary (eBook)")
+    assert len(after) == 7 and after[0]["label"].startswith("Project Hail Mary (eBooks")
 
 
 def test_buttons_only_on_the_fixed_questions(store):

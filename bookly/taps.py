@@ -41,7 +41,7 @@ def choices(out: dict, orders: list[dict], returned) -> list[dict]:
                 if returned(i["item_id"]):
                     continue
                 if i.get("digital"):
-                    buttons.append({"label": f"{i['title']} (eBooks can't be returned)", "disabled": True})
+                    buttons.append({"label": f"{i['title'].removesuffix(' (eBook)')} (eBooks can't be returned)", "disabled": True})
                 else:
                     buttons.append({"label": i["title"],
                                     "pick": {"intent": "return", "order": o["id"], "item": i["item_id"]}})
