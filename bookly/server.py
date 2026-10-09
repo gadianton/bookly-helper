@@ -8,6 +8,7 @@ import threading
 import uuid
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -36,7 +37,7 @@ class ChatIn(BaseModel):
     shopper: str
     conversation_id: str | None = None
     text: str
-    pick: dict | None = None
+    pick: Any = None  # any JSON, so a pick of the wrong type gets valid_pick's 400, not a 422
 
 
 @app.get("/")
@@ -57,6 +58,8 @@ def new_conversation(body: NewConversation):
 
 @app.post("/chat")
 def chat(body: ChatIn):
+    if body.shopper not in SHOPPERS:
+        raise HTTPException(400, "unknown shopper")
     if body.pick is not None and not valid_pick(body.pick, store.orders(body.shopper)):
         raise HTTPException(400, "bad pick")  # before any conversation is created or touched
     events: queue.Queue = queue.Queue()
