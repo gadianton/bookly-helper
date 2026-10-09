@@ -176,6 +176,7 @@ async function send(text, at, pick) {
   await ready.catch(() => (ready = startConversation()));  // the conversation failed to load: try again
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
+  clearChoices();  // buttons an earlier turn showed while this one waited in the queue: they answer an older question
   add($('#msgs'), 'msg me', text);
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
