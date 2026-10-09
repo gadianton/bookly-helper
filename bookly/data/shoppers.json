@@ -1,0 +1,82 @@
+{
+  "maya": {
+    "name": "Maya Chen",
+    "orders": [
+      {
+        "id": "BL-10533", "order_days_ago": 3, "status": "shipped", "carrier": "UPS", "tracking": "1Z84F2W70391845527",
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-10533-1", "title": "Tomorrow, and Tomorrow, and Tomorrow", "price": 18.99, "digital": false}]
+      },
+      {
+        "id": "BL-10512", "order_days_ago": 7, "status": "delivered", "delivered_days_ago": 5,
+        "shipping": 0.0, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-10512-1", "title": "Project Hail Mary (eBook)", "price": 12.99, "digital": true}]
+      },
+      {
+        "id": "BL-10498", "order_days_ago": 9, "status": "delivered", "delivered_days_ago": 6,
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-10498-1", "title": "The Little Prince", "price": 4.99, "digital": false}]
+      },
+      {
+        "id": "BL-10477", "order_days_ago": 11, "status": "delivered", "delivered_days_ago": 8,
+        "shipping": 3.99, "gift": true, "payment": "card",
+        "items": [{"item_id": "BL-10477-1", "title": "Lessons in Chemistry", "price": 16.99, "digital": false}]
+      },
+      {
+        "id": "BL-10421", "order_days_ago": 14, "status": "delivered", "delivered_days_ago": 10,
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [
+          {"item_id": "BL-10421-1", "title": "The Midnight Library", "price": 14.99, "digital": false},
+          {"item_id": "BL-10421-2", "title": "Klara and the Sun", "price": 14.99, "digital": false}
+        ]
+      },
+      {
+        "id": "BL-10406", "order_days_ago": 16, "status": "delivered", "delivered_days_ago": 12,
+        "shipping": 3.99, "gift": false, "payment": "paypal",
+        "items": [{"item_id": "BL-10406-1", "title": "Circe", "price": 17.99, "digital": false}]
+      },
+      {
+        "id": "BL-10350", "order_days_ago": 34, "status": "delivered", "delivered_days_ago": 30,
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-10350-1", "title": "The Seven Husbands of Evelyn Hugo", "price": 15.99, "digital": false}]
+      },
+      {
+        "id": "BL-10344", "order_days_ago": 35, "status": "delivered", "delivered_days_ago": 31,
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-10344-1", "title": "Where the Crawdads Sing", "price": 16.99, "digital": false}]
+      }
+    ],
+    "damaged_claims": [],
+    "past_chats": [
+      {"days_ago": 40, "summary": "Asked whether Bookly ships to Canada; told it does not yet."},
+      {"days_ago": 15, "summary": "Changed the delivery address on order BL-10421 before it shipped."}
+    ],
+    "preferences": ["Literary fiction", "Book club picks", "Prefers paperbacks"]
+  },
+  "riley": {
+    "name": "Riley Brooks",
+    "orders": [
+      {
+        "id": "BL-20917", "order_days_ago": 2, "status": "processing",
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-20917-1", "title": "Fourth Wing", "price": 19.99, "digital": false}]
+      },
+      {
+        "id": "BL-20884", "order_days_ago": 8, "status": "delivered", "delivered_days_ago": 4,
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-20884-1", "title": "Iron Flame", "price": 21.99, "digital": false}]
+      },
+      {
+        "id": "BL-20702", "order_days_ago": 30, "status": "delivered", "delivered_days_ago": 26,
+        "shipping": 3.99, "gift": false, "payment": "card",
+        "items": [{"item_id": "BL-20702-1", "title": "A Court of Thorns and Roses", "price": 18.99, "digital": false}]
+      }
+    ],
+    "damaged_claims": [{"days_ago": 20}, {"days_ago": 55}, {"days_ago": 140}],
+    "past_chats": [
+      {"days_ago": 20, "summary": "Reported A Court of Thorns and Roses arrived damaged; refunded."},
+      {"days_ago": 55, "summary": "Reported a book arrived damaged; refunded."}
+    ],
+    "preferences": ["Romantasy", "Series"]
+  }
+}
