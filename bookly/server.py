@@ -18,6 +18,7 @@ from bookly.agent import Conversation
 from bookly.returns import Ledger
 from bookly.settings import load_settings
 from bookly.store import Store
+from bookly.taps import choices, valid_pick
 
 SHOPPERS = ("maya", "riley")
 app = FastAPI()
@@ -35,6 +36,7 @@ class ChatIn(BaseModel):
     shopper: str
     conversation_id: str | None = None
     text: str
+    pick: dict | None = None
 
 
 @app.get("/")
@@ -55,6 +57,8 @@ def new_conversation(body: NewConversation):
 
 @app.post("/chat")
 def chat(body: ChatIn):
+    if body.pick is not None and not valid_pick(body.pick, store.orders(body.shopper)):
+        raise HTTPException(400, "bad pick")  # before any conversation is created or touched
     events: queue.Queue = queue.Queue()
     convo = conversations.get(body.conversation_id or "")
     if convo is None or convo.shopper_id != body.shopper:  # e.g. after a restart: the page adopts the new id
@@ -65,7 +69,11 @@ def chat(body: ChatIn):
     def run():
         try:
             with convo.lock:  # two turns of one chat at once would share its state; other chats run on
-                out = convo.send(body.text, events.put)
+                out = convo.send(body.text, events.put, pick=body.pick)
+            buttons = choices(out, convo.orders,
+                              lambda item: ledger.returned(convo.shopper_id, item))
+            if buttons:
+                events.put({"step": "choices", "choices": buttons})
             events.put({"step": "done", **out})
         except Exception as e:  # noqa: BLE001 - the page must hear about a failed turn
             events.put({"step": "error", "error": f"{type(e).__name__}: {e}"})
