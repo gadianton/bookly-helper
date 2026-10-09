@@ -23,7 +23,7 @@
   #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
   #panel.on { display: block; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
-  .ev-triage, .ev-standby { color: var(--accent); }
+  .ev-triage, .ev-standby, .ev-tap { color: var(--accent); }
   .ev-turn { font-weight: 600; margin-top: 8px; }
   #bubble { position: fixed; right: 16px; bottom: 16px; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--accent); color: var(--me-fg); font-size: 24px; cursor: pointer; }
   #chat { display: none; position: fixed; right: 16px; bottom: 84px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--line); border-radius: 12px; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
@@ -33,6 +33,10 @@
   .msg { padding: 8px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; }
   .me { align-self: flex-end; background: var(--me); color: var(--me-fg); }
   .bot { align-self: flex-start; background: var(--bot); }
+  .choices { display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; max-width: 95%; }
+  .choice { padding: 6px 10px; border: 1px solid var(--accent); border-radius: 999px; background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
+  .choice:active { background: var(--accent); color: var(--me-fg); }
+  .choice[disabled] { border-color: var(--line); background: var(--bot); color: var(--muted); cursor: default; }
   form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
   #input { flex: 1; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
   #send { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--me-fg); font: inherit; cursor: pointer; }
@@ -83,6 +87,34 @@ function add(parent, cls, text) {
   return el;
 }
 
+const HELP = [{label: "Where's my order", pick: {intent: 'order status'}},
+              {label: 'Return a book', pick: {intent: 'return'}}];
+
+function showChoices(list) {
+  const wrap = document.createElement('div');
+  wrap.className = 'choices';
+  for (const b of list) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'choice';
+    btn.textContent = b.label;
+    if (b.disabled) btn.disabled = true;
+    btn.onclick = () => { if (!btn.disabled) tap(b); };
+    wrap.appendChild(btn);
+  }
+  $('#msgs').appendChild(wrap);
+  $('#msgs').scrollTop = $('#msgs').scrollHeight;
+}
+
+function clearChoices() { for (const el of document.querySelectorAll('#msgs .choices')) el.remove(); }
+
+function tap(b) {  // a tap is a turn like a typed message, but it settles what it names
+  clearChoices();  // an old button must never answer a later question
+  const at = switches;
+  sending = sending.then(() => at === switches && send(b.label, at, b.pick))
+    .catch(() => at === switches && onEvent({step: 'error', error: 'the chat request failed'}));
+}
+
 async function startConversation() {
   const shopper = $('#shopper').value, at = switches;
   const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
@@ -101,12 +133,15 @@ async function startConversation() {
     li.appendChild(small);
     $('#orders').appendChild(li);
   }
+  add($('#msgs'), 'msg bot', `Hi ${c.name.split(' ')[0]}, what can I help with?`);
+  showChoices(HELP);
 }
 
 const n2 = x => Number(x).toFixed(2);
 function describe(e) {
   const ms = `${Math.round(e.ms)} ms`;
   switch (e.step) {
+    case 'tap': return `triage: settled by tap (intent=${e.intent}, order=${e.order ?? 'none'}, book=${e.item ?? 'none'})`;
     case 'triage': {
       const parts = Object.entries(e.answers).map(([k, a]) =>
         'pick' in a ? `${k}=${a.pick}` + (a.confidence != null ? ` (${n2(a.confidence)})` : '')
@@ -131,19 +166,20 @@ function describe(e) {
 
 function onEvent(e) {
   if (e.step === 'reply') add($('#msgs'), 'msg bot', e.text);
+  if (e.step === 'choices') showChoices(e.choices);
   if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
   const line = describe(e);
   if (line) add($('#panel'), `ev ev-${e.step}`, line);
 }
 
-async function send(text, at) {
+async function send(text, at, pick) {
   await ready.catch(() => (ready = startConversation()));  // the conversation failed to load: try again
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
   add($('#msgs'), 'msg me', text);
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text})});
+    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text, pick})});
   if (!r.ok) throw new Error(`chat request failed: ${r.status}`);
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
   let buf = '';
@@ -179,6 +215,7 @@ $('#form').onsubmit = e => {
   const text = $('#input').value.trim();
   if (!text) return;
   $('#input').value = '';
+  clearChoices();
   const at = switches;
   sending = sending.then(() => at === switches && send(text, at))
     .catch(() => at === switches && onEvent({step: 'error', error: 'the chat request failed'}));
