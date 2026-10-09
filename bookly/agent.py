@@ -66,56 +66,71 @@ class Conversation:
         return self._now or datetime.now(ET)
 
     # ---- one customer message ----
-    def send(self, text: str, on_event=lambda e: None) -> dict:
+    def send(self, text: str, on_event=lambda e: None, pick: dict | None = None) -> dict:
+        """pick: the storefront tap's checked pick; None = a typed message, exactly as today."""
         self.turn += 1
         emit = lambda step, start, **kw: on_event({"step": step, "ms": _ms(start), **kw})
         s = self.state
 
-        if s["handed_off"]:  # before every path rule: no triage, no model
+        if s["handed_off"]:  # before every path rule: no triage, no model, no tap
             start = time.perf_counter()
             emit("path", start, path="wait", reason="already handed off")
             return self._finish(text, fixed_text("wait", self.orders, self.now()), "wait", emit)
 
-        start = time.perf_counter()
-        haiku = lambda *a: ask_haiku(*a, client=self.anthropic)
-        t = triage(text, self.history[-self.settings["history_messages"]:], self.orders,
-                   {"order": s["kept_order"], "reason": s["kept_reason"]}, self.settings, jev=self.jev, haiku=haiku)
-        if t["standby"]:
-            emit("standby", start, why=t["standby"], detail=t["standby_why"])
-        emit("triage", start, model=t["model"], answers=t["raw"], model_ms=round(t["ms"], 1),
-             result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts", "mood", "angry")})
+        if pick is None:
+            start = time.perf_counter()
+            haiku = lambda *a: ask_haiku(*a, client=self.anthropic)
+            t = triage(text, self.history[-self.settings["history_messages"]:], self.orders,
+                       {"order": s["kept_order"], "reason": s["kept_reason"]}, self.settings, jev=self.jev, haiku=haiku)
+            if t["standby"]:
+                emit("standby", start, why=t["standby"], detail=t["standby_why"])
+            emit("triage", start, model=t["model"], answers=t["raw"], model_ms=round(t["ms"], 1),
+                 result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts", "mood", "angry")})
+        else:  # a tap settles what it names: no Jev, no standby, no words so no mood or person to read
+            start = time.perf_counter()
+            t = {"intent": pick["intent"], "order_pick": pick.get("order") or "can't tell",
+                 "effective_order": pick.get("order") or "can't tell", "person": False, "accepts": False,
+                 "mood": "calm", "angry": False, "reason": s["kept_reason"] or "not said",
+                 "raw": {"reason": {"pick": "not said"}}}
+            emit("tap", start, intent=t["intent"], order=pick.get("order"), item=pick.get("item"))
         if t["effective_order"] in {o["id"] for o in self.orders}:
             s["kept_order"] = t["effective_order"]
         if t["raw"]["reason"]["pick"] != "not said":  # a reason said now applies to the next book quoted
             s["kept_reason"], s["reason_item"] = t["raw"]["reason"]["pick"], None
 
         start = time.perf_counter()
-        p = pick_path(t, s)
+        if pick is not None and not pick.get("order"):
+            # a kind-of-help tap always asks which order or book, remembered order or not
+            p = {"path": "clarify_book" if pick["intent"] == "return" else "clarify_order",
+                 "reason": "kind of help tapped"}
+        else:
+            p = pick_path(t, s)
         emit("path", start, **p)
         if p["path"] == "handoff":
-            return self._handoff(text, p["reason"], emit)
+            return self._handoff(text, p["reason"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
-            return self._finish(text, fixed_text(p["path"], self.orders, self.now()), p["path"], emit)
+            return self._finish(text, fixed_text(p["path"], self.orders, self.now()), p["path"], emit, intent=t["intent"])
         return self._run_model(text, p["path"], t, emit)
 
     # ---- endings ----
-    def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False):
+    def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False, intent=None):
         s = self.state
         start = time.perf_counter()
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
-        if path in ("scope", "signoff", "clarify_intent", "clarify_order"):
-            s["last_reply_kind"] = path if path in ("scope", "clarify_intent", "clarify_order") else None
+        if path in ("scope", "signoff", "clarify_intent", "clarify_order", "clarify_book"):
+            s["last_reply_kind"] = "clarify_order" if path == "clarify_book" else (
+                path if path in ("scope", "clarify_intent", "clarify_order") else None)
         self.history += [{"role": "customer", "text": text}, {"role": "agent", "text": reply}]
         emit("reply", start, text=reply)
         emit("tag", start, tag=s["tag"])
-        return {"reply": reply, "path": path, "tag": s["tag"]}
+        return {"reply": reply, "path": path, "tag": s["tag"], "intent": intent}
 
-    def _handoff(self, text, reason, emit, path="handoff"):
+    def _handoff(self, text, reason, emit, path="handoff", intent=None):
         start = time.perf_counter()
         self.state["handed_off"] = True
         self.handoff_record = {"reason": reason, "at": self.now().isoformat()}
         emit("handoff", start, reason=reason)
-        return self._finish(text, fixed_text("handoff", self.orders, self.now()), path, emit)
+        return self._finish(text, fixed_text("handoff", self.orders, self.now()), path, emit, intent=intent)
 
     # ---- the reply model ----
     def _load_profile(self, emit):
@@ -186,7 +201,7 @@ class Conversation:
             if not uses:  # tool_choice "any" should prevent this; treat stray text as the reply
                 reply = " ".join(b.text for b in r.content if b.type == "text")
                 self.state["last_reply_kind"] = "model"
-                return self._finish(text, reply, path, emit)
+                return self._finish(text, reply, path, emit, intent=t["intent"])
             messages.append({"role": "assistant", "content": [
                 {"type": "tool_use", "id": b.id, "name": b.name, "input": b.input} if b.type == "tool_use"
                 else {"type": "text", "text": b.text} for b in r.content if b.type == "tool_use" or b.text]})
@@ -207,17 +222,17 @@ class Conversation:
                         offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
-                    return self._finish(text, reply, path, emit, needs, offer)
+                    return self._finish(text, reply, path, emit, needs, offer, t["intent"])
                 if b.name == "handoff":
                     emit("tool_call", start, name="handoff", source=None, input=b.input, result="handed off")
-                    return self._handoff(text, "reply model: " + b.input.get("reason", ""), emit, path)
+                    return self._handoff(text, "reply model: " + b.input.get("reason", ""), emit, path, t["intent"])
                 if b.name not in tools:
                     source, result = None, {"result": f"tool {b.name} is not offered here"}
                 else:
                     source, result = self._call_tool(b.name, b.input, t)
                 emit("tool_call", start, name=b.name, source=source, input=b.input, result=result)
                 if b.name == "return_quote" and result.get("result") == "needs a person":
-                    return self._handoff(text, f"return policy: {result['why']}", emit, path)
+                    return self._handoff(text, f"return policy: {result['why']}", emit, path, t["intent"])
                 results.append({"type": "tool_result", "tool_use_id": b.id, "content": json.dumps(result, default=str)})
             messages.append({"role": "user", "content": results})
-        return self._handoff(text, "reply model did not finish its turn", emit, path)
+        return self._handoff(text, "reply model did not finish its turn", emit, path, t["intent"])
