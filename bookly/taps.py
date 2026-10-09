@@ -1,0 +1,49 @@
+"""Tap picks and the button lists a fixed question is followed by: pure functions over the shopper's orders."""
+
+HELP_BUTTONS = [
+    {"label": "Where's my order", "pick": {"intent": "order status"}},
+    {"label": "Return a book", "pick": {"intent": "return"}},
+]
+
+
+def valid_pick(pick: dict, orders: list[dict]) -> bool:
+    """True only for the three pick shapes naming this shopper's own order and one of its items."""
+    if not isinstance(pick, dict):
+        return False
+    order = next((o for o in orders if o["id"] == pick.get("order")), None)
+    if pick.get("intent") == "order status":
+        if set(pick) == {"intent"}:
+            return True
+        return set(pick) == {"intent", "order"} and order is not None
+    if pick.get("intent") == "return":
+        if set(pick) == {"intent"}:
+            return True
+        if set(pick) == {"intent", "order", "item"}:
+            return order is not None and any(i["item_id"] == pick["item"] for i in order["items"])
+    return False
+
+
+def choices(out: dict, orders: list[dict], returned) -> list[dict]:
+    """The buttons for the turn's reply, empty for anything that is not a button-followed question."""
+    path, intent = out.get("path"), out.get("intent")
+    if path == "clarify_intent":
+        return [{"label": b["label"], "pick": dict(b["pick"])} for b in HELP_BUTTONS]
+    orders = sorted(orders, key=lambda o: o["order_date"], reverse=True)  # newest first, whatever the caller kept
+    if path == "clarify_order" and intent == "order status":
+        listed = [o for o in orders if o["status"] in ("processing", "shipped")]
+        listed += [o for o in orders if o["status"] == "delivered"][:3]
+        return [{"label": f"{', '.join(i['title'] for i in o['items'])} · {o['status']}",
+                 "pick": {"intent": "order status", "order": o["id"]}} for o in listed]
+    if (path == "clarify_order" and intent == "return") or path == "clarify_book":
+        buttons = []
+        for o in (o for o in orders if o["status"] == "delivered"):
+            for i in o["items"]:
+                if returned(i["item_id"]):
+                    continue
+                if i.get("digital"):
+                    buttons.append({"label": f"{i['title']} (eBooks can't be returned)", "disabled": True})
+                else:
+                    buttons.append({"label": i["title"],
+                                    "pick": {"intent": "return", "order": o["id"], "item": i["item_id"]}})
+        return buttons
+    return []
