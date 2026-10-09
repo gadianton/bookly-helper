@@ -94,7 +94,12 @@ class Conversation:
                  "raw": {"reason": {"pick": "not said"}}}
             emit("tap", start, intent=t["intent"], order=pick.get("order"), item=pick.get("item"))
         if t["effective_order"] in {o["id"] for o in self.orders}:
+            if s["book"] and s["kept_order"] != t["effective_order"]:
+                s["book"] = None  # the turn is about another order: the tapped book no longer applies
             s["kept_order"] = t["effective_order"]
+        if pick is not None:  # a tap settles the book too: named item -> that book, no item -> none
+            s["book"] = next(({"item_id": pick["item"], "title": i["title"]}
+                              for o in self.orders for i in o["items"] if i["item_id"] == pick.get("item")), None)
         if t["raw"]["reason"]["pick"] != "not said":  # a reason said now applies to the next book quoted
             s["kept_reason"], s["reason_item"] = t["raw"]["reason"]["pick"], None
 
@@ -149,6 +154,7 @@ class Conversation:
             "today": self.store.today.isoformat(),
             "request": intent_path.replace("_", " "),
             "order_this_message_is_about": t["effective_order"],
+            "book_this_message_is_about": self.state["book"],
             "return_reason_from_conversation": t["reason"],
             "customer_accepted_last_offer": t["accepts"],
             "pending_offers": pending,

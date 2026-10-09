@@ -1,3 +1,5 @@
+import json
+
 from bookly.agent import Conversation
 from bookly.paths import fixed_text
 from bookly.returns import Ledger
@@ -75,3 +77,31 @@ def test_tap_never_accepts_an_offer_or_beats_a_handoff(store, settings):
     out = convo.send("Return a book", events.append, pick={"intent": "return"})
     assert out["path"] == "wait"  # the already-handed-off rule wins over a tap
     assert "tap" not in [e["step"] for e in events]
+
+
+def _context_book(system: str):
+    return json.loads(system.split("## Context\n", 1)[1])["book_this_message_is_about"]
+
+
+def test_tapped_book_follows_its_order(store, settings):
+    jev = fake_triage(answers(intent="return", order="can't tell"), answers(intent="return", order="BL-10498"))
+    model = FakeReplyModel()
+    convo = _convo(store, settings, jev, model)
+    convo.send("Klara and the Sun", pick={"intent": "return", "order": "BL-10421", "item": "BL-10421-2"})
+    convo.send("it arrived damaged")  # typed; Jev reads order "can't tell": the kept order holds
+    assert _context_book(model.requests[-1]["system"]) == {"item_id": "BL-10421-2", "title": "Klara and the Sun"}
+    convo.send("the Little Prince arrived damaged")  # typed, about BL-10498: another order clears the book
+    assert _context_book(model.requests[-1]["system"]) is None
+
+
+def test_tap_gives_no_return_reason(store, settings):
+    model = FakeReplyModel(("return_quote", {"order_id": "BL-10498", "item_id": "BL-10498-1", "condition": "not stated"}),
+                           ("reply", {"text": "Why are you returning it?", "needs_answer": True}))
+    ledger = Ledger()
+    convo = Conversation("maya", store, ledger, settings, now=NOW, anthropic=model, jev=fake_triage(answers()))
+    events = []
+    convo.send("The Little Prince", events.append,
+               pick={"intent": "return", "order": "BL-10498", "item": "BL-10498-1"})
+    quote = next(e for e in events if e["step"] == "tool_call" and e["name"] == "return_quote")
+    assert quote["result"]["result"] == "needs reason"  # the tap gives no reason; none is invented
+    assert ledger.offers == {}
