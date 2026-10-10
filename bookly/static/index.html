@@ -5,73 +5,200 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookly</title>
 <style>
-  :root { --bg: #faf7f2; --fg: #2b2622; --muted: #7a716a; --card: #fff; --line: #e6dfd6; --accent: #8a3b12; --bot: #f1ece5; --me: #8a3b12; --me-fg: #fff; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1d1a18; --fg: #eee7df; --muted: #a59b92; --card: #272320; --line: #3a3430; --accent: #e08a5a; --bot: #312c28; --me: #e08a5a; --me-fg: #1d1a18; } }
+  /* Look B tokens (design/look-b.md): the old names keep Look B values, so the
+     architecture view's diagram keeps its colours at merge */
+  :root { --bg: #FFFFFF; --fg: #12141A; --muted: #5B6170; --card: #FFFFFF; --line: #ECEEF3; --accent: #2344C9; --bot: #FFFFFF; --me: #2344C9; --me-fg: #FFFFFF;
+          --ink: #12141A; --surface: #F3F4F7; --surface-2: #F8F9FB; --accent-tint: #EEF2FF; --online: #3FD18A;
+          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; }
+  @font-face { font-family: 'Manrope'; src: url('/static/fonts/manrope.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Bricolage Grotesque'; src: url('/static/fonts/bricolage-grotesque.woff2') format('woff2'); font-weight: 600 700; font-style: normal; font-display: swap; }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
-  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--line); }
-  h1 { margin: 0; font: 600 24px Georgia, serif; color: var(--accent); }
-  header label { color: var(--muted); font-size: 14px; }
-  main { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
-  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-  .book { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
-  .book b { display: block; font-family: Georgia, serif; }
-  .book span { color: var(--muted); font-size: 13px; }
+  body { margin: 0; font: 15px/1.5 'Manrope', sans-serif; background: var(--bg); color: var(--fg); }
+  button { cursor: pointer; font: inherit; }
+  a { color: var(--accent); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* Top strip */
+  .top-strip { background: var(--ink); color: #E8EAF0; font-size: 13px; text-align: center; padding: 8px 16px; }
+
+  /* Header */
+  header { border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1220px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  h1 { margin: 0; font: 700 26px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.03em; }
+  .search { flex: 1 1 280px; display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 44px; border-radius: 999px; background: var(--surface); color: var(--muted); }
+  .search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--fg); outline: none; }
+  .header-actions { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+  .account { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  #shopper { font: inherit; font-weight: 600; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; color: var(--fg); }
+  .switch { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 10px; cursor: pointer; color: var(--muted); }
+  .switch input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .bag { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line-strong); background: #fff; color: var(--fg); display: grid; place-items: center; }
+
+  /* Category chips */
+  .chips { max-width: 1220px; margin: 0 auto; padding: 0 24px 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 8px 14px; border-radius: 999px; border: 0; background: var(--surface); color: var(--fg); font-size: 14px; }
+  .chip.active { background: var(--ink); color: #fff; font-weight: 600; }
+  main { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 28px 24px 120px; max-width: 1220px; margin: 0 auto; }
+  main:has(#panel.on) { grid-template-columns: 1fr minmax(0, 420px); }  /* the Agent panel: a right-hand column beside the store content */
+  @media (max-width: 800px) { main, main:has(#panel.on) { grid-template-columns: 1fr; } }
+  #storefront { display: flex; flex-direction: column; gap: 36px; }
+
+  /* Orders area */
+  .orders { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+  .order-card { flex: 2 1 420px; padding: 20px; border-radius: 16px; background: var(--accent-tint); display: flex; gap: 16px; align-items: center; }
+  .order-card .cover-block { width: 64px; height: 96px; flex: none; }
+  .status-label { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+  .order-title { font-weight: 700; font-size: 17px; margin-top: 2px; }
+  .order-line { color: var(--muted); font-size: 14px; }
+  .bar-track { margin-top: 10px; height: 6px; border-radius: 999px; background: #D5DCFA; }
+  .bar-fill { width: 66%; height: 6px; border-radius: 999px; background: var(--accent); }
+  .orders-summary { flex: 1 1 240px; padding: 20px; border-radius: 16px; background: #F6F7F9; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+  .orders-summary b { font-weight: 700; }
+  .orders-summary .recent { color: var(--muted); font-size: 14px; }
+  .all-orders { font-weight: 600; font-size: 14px; margin-top: 6px; cursor: pointer; }
+  .orders-list { display: none; border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 4px 20px; }
+  .orders-list.open { display: block; }
+
+  /* Coloured cover blocks — colour rule: the first title's character codes,
+     summed, mod 5, index the mockup's five colour pairs:
+     0 #1E3A5F/#F2EBD9  1 #C2462B/#FFF4E8  2 #F0C64A/#2A2108
+     3 #2B2440/#EDE4FF  4 #0F7B6C/#E9FFF8 */
+  .cover-block { border-radius: 4px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; }
+
+  /* Staff-pick shelves */
+  .shelf-section h2 { margin: 0; font: 700 30px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.02em; }
+  .shelf { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+  .book { display: flex; flex-direction: column; gap: 6px; }
+  .cover { position: relative; padding: 18px; border-radius: 14px; background: var(--surface); display: grid; place-items: center; }
+  .cover img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; box-shadow: 0 8px 18px rgba(18,20,26,.16); display: block; }
+  .cover .cover-block { width: 100%; aspect-ratio: 2 / 3; padding: 12px; font-size: 17px; line-height: 1.1; box-shadow: 0 8px 18px rgba(18,20,26,.16); }
+  .pill { position: absolute; top: 10px; left: 10px; z-index: 1; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 600; }
+  .book b { font-weight: 700; margin-top: 4px; }
+  .book .author { color: var(--muted); font-size: 14px; }
+  .buy { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+  .price { font-weight: 700; font-size: 16px; }
+  .add { font-weight: 600; font-size: 14px; padding: 8px 14px; min-height: 36px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; }
   #orders li { margin: 4px 0; }
   #orders small { color: var(--muted); }
-  #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
+  #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
   #panel.on { display: block; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   .ev-triage, .ev-standby, .ev-tap { color: var(--accent); }
   .ev-turn { font-weight: 600; margin-top: 8px; }
-  #bubble { position: fixed; right: 16px; bottom: 16px; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--accent); color: var(--me-fg); font-size: 24px; cursor: pointer; }
-  #chat { display: none; position: fixed; right: 16px; bottom: 84px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--line); border-radius: 12px; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
-  #chat.open { display: flex; }
-  #chat header { padding: 10px 12px; }
-  #msgs { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .msg { padding: 8px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; }
-  .me { align-self: flex-end; background: var(--me); color: var(--me-fg); }
-  .bot { align-self: flex-start; background: var(--bot); }
-  .choices { display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; max-width: 95%; }
-  .choice { padding: 6px 10px; border: 1px solid var(--accent); border-radius: 999px; background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
-  .choice:active { background: var(--accent); color: var(--me-fg); }
-  .choice[disabled] { border-color: var(--line); background: var(--bot); color: var(--muted); cursor: default; }
-  form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
-  #input { flex: 1; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
-  #send { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--me-fg); font: inherit; cursor: pointer; }
+  /* Chat */
+  #bubble { position: fixed; z-index: 10; right: 24px; bottom: 24px; height: 56px; padding: 0 20px 0 16px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 10px 24px rgba(35,68,201,.35); }
+  #chat { position: fixed; z-index: 10; right: 24px; bottom: 96px; width: 380px; max-width: calc(100vw - 48px); height: 540px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; background: #fff; border: 1px solid #E4E7EE; border-radius: 20px; box-shadow: 0 24px 60px rgba(18,20,26,.20); overflow: hidden;
+          transform-origin: 100% 100%; transform: scale(0.95); opacity: 0; visibility: hidden; pointer-events: none;
+          transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 0s 150ms; }
+  #chat.open { transform: scale(1); opacity: 1; visibility: visible; pointer-events: auto;
+             transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1), visibility 0s; }
+  #chat header { padding: 16px; background: var(--ink); color: #fff; display: flex; align-items: center; gap: 12px; border: 0; }
+  .badge { width: 36px; height: 36px; border-radius: 12px; background: var(--accent); display: grid; place-items: center; font: 700 15px 'Bricolage Grotesque', sans-serif; }
+  .online { font-size: 12px; color: #B9BECB; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--online); }
+  #msgs { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow: auto; background: var(--surface-2); }
+  .msg { padding: 10px 14px; border-radius: 16px; max-width: 85%; white-space: pre-wrap; }
+  .msg.bot { align-self: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 16px 16px 16px 6px; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 16px 16px 6px 16px; }
+  .msg.reply { max-width: 88%; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .reply-card { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 12px; background: var(--surface); }
+  .reply-card .cover-block { width: 32px; height: 48px; flex: none; border-radius: 3px; }
+  .reply-card .text { font-size: 13px; line-height: 1.35; }
+  .choices { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; align-self: flex-start; }
+  .choice { font-weight: 600; font-size: 14px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--accent-tint-border); border-radius: 12px; background: var(--accent-tint); color: var(--accent); cursor: pointer;
+            animation: choice-in 200ms ease-out backwards; }
+  .choice:nth-child(2) { animation-delay: 50ms; }
+  .choice:nth-child(3) { animation-delay: 100ms; }
+  .choice[disabled] { background: var(--surface); border-color: var(--line-strong); color: var(--muted); cursor: default; }
+  form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+  #input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; color: var(--fg); }
+  #send { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; }
+
+  /* Motion (design/emil-design-eng.md): presses scale 0.97 in 160 ms ease-out;
+     the chat opens from its bottom-right corner in 200 ms, closes in 150 ms;
+     quick replies fade up 6 px in 200 ms, staggered 50 ms. */
+  button:not([disabled]) { transition: transform 160ms ease-out; }
+  button:not([disabled]):active { transform: scale(0.97); }
+  @keyframes choice-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes choice-fade { from { opacity: 0; } }
+
+  @media (hover: hover) and (pointer: fine) {
+    a:hover { color: var(--accent-hover); }
+    .chip:hover { background: #E9EBF0; }
+    .chip.active:hover { background: #2A2E3A; }
+    .add:hover { background: #2A2E3A; }
+    #bubble:hover, #send:hover { background: var(--accent-hover); }
+    .choice:not([disabled]):hover { border-color: #A9BAFB; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button:not([disabled]) { transition: none; }
+    button:not([disabled]):active { transform: none; }
+    #chat { transform: none; transition: opacity 150ms ease-out, visibility 0s 150ms; }
+    #chat.open { transform: none; transition: opacity 200ms ease-out, visibility 0s; }
+    .choice { animation-name: choice-fade; }
+  }
 </style>
 </head>
 <body>
+<div class="top-strip">Free shipping on orders over $35 &middot; 30-day returns</div>
 <header>
-  <h1>Bookly</h1>
-  <div>
-    <label>Signed in as
-      <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
+  <div class="bar">
+    <h1>bookly</h1>
+    <label class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span class="sr-only">Search</span>
+      <input placeholder="Search titles, authors, ISBN">
     </label>
-    <label><input type="checkbox" id="panel-toggle"> Agent panel</label>
+    <div class="header-actions">
+      <label class="account">Account
+        <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
+      </label>
+      <label class="switch"><input type="checkbox" id="panel-toggle"> Agent panel</label>
+      <button type="button" class="bag" aria-label="Bag, 0 items">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>
+      </button>
+    </div>
   </div>
+  <nav class="chips" aria-label="Categories">
+    <button type="button" class="chip active">New releases</button>
+    <button type="button" class="chip">Bestsellers</button>
+    <button type="button" class="chip">Fiction</button>
+    <button type="button" class="chip">Sci-fi &amp; fantasy</button>
+    <button type="button" class="chip">eBooks</button>
+  </nav>
 </header>
 <main>
-  <section>
-    <h2>New this week</h2>
-    <div class="shelf">
-      <div class="book"><b>The Midnight Library</b><span>Matt Haig · $14.99</span></div>
-      <div class="book"><b>Circe</b><span>Madeline Miller · $17.99</span></div>
-      <div class="book"><b>Klara and the Sun</b><span>Kazuo Ishiguro · $16.99</span></div>
-      <div class="book"><b>Fourth Wing</b><span>Rebecca Yarros · $19.99</span></div>
-    </div>
-    <h2>Your orders</h2>
-    <ul id="orders"></ul>
-  </section>
+  <div id="storefront">
+    <section class="orders" aria-label="Your orders">
+      <div class="order-card"></div>
+      <div class="orders-summary"></div>
+    </section>
+    <div class="orders-list"><ul id="orders"></ul></div>
+  </div>
   <aside id="panel" aria-label="Agent panel"></aside>
 </main>
 
-<button id="bubble" aria-label="Open chat">&#128172;</button>
+<button id="bubble" aria-label="Open chat">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>
+  Help
+</button>
 <div id="chat" role="dialog" aria-label="Bookly chat">
-  <header><b>Bookly help</b></header>
+  <header>
+    <span class="badge">b</span>
+    <div>
+      <div style="font-weight:700">Bookly support</div>
+      <div class="online"><span class="dot"></span>Online now</div>
+    </div>
+  </header>
   <div id="msgs" aria-live="polite"></div>
-  <form id="form"><input id="input" autocomplete="off" placeholder="Ask about an order or a return"><button id="send">Send</button></form>
+  <form id="form">
+    <label for="input" class="sr-only">Message</label>
+    <input id="input" autocomplete="off" placeholder="Ask about an order or a return">
+    <button id="send" aria-label="Send">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+    </button>
+  </form>
 </div>
 
 <script>
@@ -85,6 +212,127 @@ function add(parent, cls, text) {
   parent.appendChild(el);
   parent.scrollTop = parent.scrollHeight;
   return el;
+}
+
+// Staff picks: Jonathan's twelve books, prices from the US editions in checks/editions.tsv
+const BOOKS = [
+  {shelf: 'Business & growth', title: 'How to Win Friends and Influence People', author: 'Dale Carnegie', price: '$19.99', cover: 'how-to-win-friends'},
+  {shelf: 'Business & growth', title: 'The 7 Habits of Highly Effective People', author: 'Stephen R. Covey', price: '$19.99', cover: '7-habits'},
+  {shelf: 'Business & growth', title: 'Gap Selling', author: 'Keenan', price: '$17.99', cover: 'gap-selling'},
+  {shelf: 'Business & growth', title: 'Start with Why', author: 'Simon Sinek', price: '$31.00', cover: 'start-with-why'},
+  {shelf: 'Business & growth', title: 'Good to Great', author: 'Jim Collins', price: '$35.00', cover: 'good-to-great'},
+  {shelf: 'Business & growth', title: 'Quiet', author: 'Susan Cain', price: '$23.00', cover: 'quiet'},
+  {shelf: 'Business & growth', title: 'Born a Crime', author: 'Trevor Noah', price: '$30.00', cover: 'born-a-crime'},
+  {shelf: 'Fantasy', title: 'Changes', author: 'Jim Butcher', price: '$12.99', cover: 'changes'},
+  {shelf: 'Fantasy', title: 'Theft of Swords', author: 'Michael J. Sullivan', price: '$21.99', cover: 'theft-of-swords'},
+  {shelf: 'Fantasy', title: 'Mistborn: The Final Empire', author: 'Brandon Sanderson', price: '$23.99', cover: 'mistborn'},
+  {shelf: 'Fantasy', title: 'He Who Fights with Monsters 4', author: 'Shirtaloon', price: '$35.00', cover: 'hwfwm-4'},
+  {shelf: 'Fantasy', title: 'Solo Leveling, Vol. 1', author: 'Chugong', price: '$20.00', cover: 'solo-leveling-1'},
+];
+const COVER_COLOURS = [['#1E3A5F', '#F2EBD9'], ['#C2462B', '#FFF4E8'], ['#F0C64A', '#2A2108'], ['#2B2440', '#EDE4FF'], ['#0F7B6C', '#E9FFF8']];
+function coverColour(title) {  // the colour rule: the first title's character codes, summed, mod 5
+  let sum = 0;
+  for (const ch of title) sum += ch.charCodeAt(0);
+  return COVER_COLOURS[sum % 5];
+}
+function coverBlock(title, size) {  // a coloured block standing in for a cover
+  const [bg, fg] = coverColour(title);
+  const el = document.createElement('div');
+  el.className = 'cover-block' + (size ? ' ' + size : '');
+  el.style.background = bg;
+  el.style.color = fg;
+  el.textContent = title;
+  return el;
+}
+function daysAgo(isoDate, today) {  // days counted from the store's today, never the browser's clock
+  const n = Math.round((Date.parse(today) - Date.parse(isoDate)) / 86400000);
+  return n <= 0 ? 'today' : n === 1 ? '1 day ago' : `${n} days ago`;
+}
+function showOrderCards(c) {  // the two cards above the shelves, filled from the conversation start
+  const newest = c.orders[0];
+  const label = {processing: 'Preparing', shipped: 'On its way', delivered: 'Delivered'}[newest.status];
+  const when = {processing: `Ordered ${daysAgo(newest.order_date, c.today)}`,
+                shipped: `Shipped ${newest.carrier ? 'with ' + newest.carrier + ' ' : ''}${daysAgo(newest.order_date, c.today)}`,
+                delivered: `Delivered ${daysAgo(newest.delivered_date, c.today)}`}[newest.status];
+  const card = $('.order-card');
+  card.textContent = '';
+  const [bg] = coverColour(newest.titles[0]);  // the mock's orders-card block is a plain colour
+  const block = document.createElement('div');
+  block.className = 'cover-block';
+  block.style.background = bg;
+  const body = document.createElement('div');
+  for (const [cls, text] of [['status-label', label], ['order-title', newest.titles.join(', ')],
+                              ['order-line', `${newest.id} · ${when}`]]) {
+    const el = document.createElement('div');
+    el.className = cls;
+    el.textContent = text;
+    body.appendChild(el);
+  }
+  const track = document.createElement('div');
+  track.className = 'bar-track';
+  const fill = document.createElement('div');
+  fill.className = 'bar-fill';
+  fill.style.width = {processing: '33.333%', shipped: '66.667%', delivered: '100%'}[newest.status];
+  track.appendChild(fill);
+  body.appendChild(track);
+  card.append(block, body);
+
+  const delivered = c.orders.filter(o => o.status === 'delivered');
+  const summary = $('.orders-summary');
+  summary.textContent = '';
+  const count = document.createElement('b');
+  count.textContent = `${delivered.length} delivered order${delivered.length === 1 ? '' : 's'}`;
+  const recent = document.createElement('span');
+  recent.className = 'recent';
+  if (delivered.length) recent.textContent = `Most recent: ${delivered[0].titles.join(', ')}`;
+  const all = document.createElement('a');
+  all.className = 'all-orders';
+  all.href = '#';  // an href makes the link reachable and usable from the keyboard
+  all.textContent = 'All orders →';
+  all.onclick = e => { e.preventDefault(); $('#orders').parentElement.classList.toggle('open'); };  // today's order list, hidden until asked for
+  summary.append(count, recent, all);
+}
+function bookCard(b) {
+  const card = document.createElement('article');
+  card.className = 'book';
+  const well = document.createElement('div');
+  well.className = 'cover';
+  const pill = document.createElement('span');
+  pill.className = 'pill';
+  pill.textContent = 'Staff pick';
+  const img = document.createElement('img');
+  img.src = `/static/covers/${b.cover}.jpg`;
+  img.alt = b.title;
+  img.onerror = () => img.replaceWith(coverBlock(b.title));  // a cover that fails to load
+  well.append(pill, img);
+  const title = document.createElement('b');
+  title.textContent = b.title;
+  const author = document.createElement('span');
+  author.className = 'author';
+  author.textContent = b.author;
+  const buy = document.createElement('div');
+  buy.className = 'buy';
+  const price = document.createElement('span');
+  price.className = 'price';
+  price.textContent = b.price;
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';  // inert: the demo is about support, not shopping
+  addBtn.className = 'add';
+  addBtn.textContent = 'Add to bag';
+  buy.append(price, addBtn);
+  card.append(well, title, author, buy);
+  return card;
+}
+for (const shelf of [...new Set(BOOKS.map(b => b.shelf))]) {  // the two shelves, below the orders area
+  const section = document.createElement('section');
+  section.className = 'shelf-section';
+  const h2 = document.createElement('h2');
+  h2.textContent = `Jonathan's picks · ${shelf}`;
+  const row = document.createElement('div');
+  row.className = 'shelf';
+  for (const b of BOOKS.filter(x => x.shelf === shelf)) row.appendChild(bookCard(b));
+  section.append(h2, row);
+  $('#storefront').appendChild(section);
 }
 
 const HELP = [{label: "Where's my order", pick: {intent: 'order status'}},
@@ -133,6 +381,7 @@ async function startConversation() {
     li.appendChild(small);
     $('#orders').appendChild(li);
   }
+  showOrderCards(c);
   add($('#msgs'), 'msg bot', `Hi ${c.name.split(' ')[0]}, what can I help with?`);
   showChoices(HELP);
 }
@@ -164,8 +413,39 @@ function describe(e) {
   }
 }
 
+let turnOrders = null;  // per turn: {path, orders: Map<id, result>, handedOff}
+function trackTurn(e) {  // the reply card reads the turn's path, its order lookups and any handoff
+  if (e.step === 'path') turnOrders = {path: e.path, orders: new Map(), handedOff: false};
+  if (turnOrders && e.step === 'tool_call' && e.name === 'lookup_order' && e.result && e.result.id)
+    turnOrders.orders.set(e.result.id, e.result);  // a lookup repeated for the same order still counts as one
+  if (turnOrders && e.step === 'handoff') turnOrders.handedOff = true;
+}
+function replyCard(order) {  // the mockup's order card, built from the lookup's result
+  const titles = order.titles || order.items.map(i => i.title);  // a lookup result carries items
+  const card = document.createElement('div');
+  card.className = 'reply-card';
+  const block = coverBlock(titles[0]);
+  block.textContent = '';  // the mock's small block is a plain colour: the title sits beside it
+  block.style.color = '';  // no text, so the mock sets no text colour either
+  const text = document.createElement('div');
+  text.className = 'text';
+  const title = document.createElement('b');
+  title.textContent = titles.join(', ');
+  const line = document.createElement('div');
+  line.textContent = order.tracking ? `${order.id} · ${order.tracking}` : order.id;
+  text.append(title, line);
+  card.append(block, text);
+  return card;
+}
+
 function onEvent(e) {
+  trackTurn(e);
   if (e.step === 'reply') add($('#msgs'), 'msg bot', e.text);
+  if (e.step === 'reply' && turnOrders && turnOrders.path === 'order_status' && !turnOrders.handedOff && turnOrders.orders.size === 1) {
+    const bubble = $('#msgs').lastElementChild;  // the bubble the line above just added
+    bubble.classList.add('reply');
+    bubble.appendChild(replyCard(turnOrders.orders.values().next().value));
+  }
   if (e.step === 'choices') showChoices(e.choices);
   if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
   const line = describe(e);
@@ -177,6 +457,7 @@ async function send(text, at, n, pick) {
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
   add($('#msgs'), 'msg me', text);
+  turnOrders = null;  // a fresh turn: nothing of the last one may bleed into it
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text, pick})});
@@ -207,6 +488,7 @@ $('#shopper').onchange = () => {
   switches++;
   sending = Promise.resolve();
   for (const s of ['#msgs', '#panel', '#orders']) $(s).textContent = '';  // nothing of the old shopper while the new one loads
+  for (const s of ['.order-card', '.orders-summary']) $(s).textContent = '';  // the cards refill once the new conversation loads
   ready = startConversation();
 };
 let sending = Promise.resolve();  // one turn at a time: two at once would share one conversation's state
