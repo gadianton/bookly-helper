@@ -7,3 +7,5 @@ Look B defines light colors only; a dark palette would be one nobody chose, and 
 
 ## Prior requests
 - 2026-10-10: keep the old page's dark mode through the Look B restyle
+
+- 2026-10-10: a dark version of Look B for the live architecture view
