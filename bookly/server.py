@@ -4,6 +4,7 @@ Keys are read only here, by the model clients; the page never sees them."""
 import argparse
 import json
 import queue
+import socket
 import threading
 import uuid
 from datetime import date
@@ -96,13 +97,27 @@ def chat(body: ChatIn):
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
+def free_port(start: int = 8000) -> int:
+    """First port from start up that nothing listens on, so servers from several task folders run side by side."""
+    for port in range(start, start + 100):
+        with socket.socket() as s:
+            try:
+                s.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                continue
+    raise RuntimeError(f"no free port in {start}-{start + 99}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--triage-model", choices=["jev", "haiku"], help="override triage_model in settings.toml")
     args = ap.parse_args()
     if args.triage_model:
         settings["triage_model"] = args.triage_model
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    port = free_port()
+    print(f"Storefront at http://127.0.0.1:{port}", flush=True)
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
 
 
 if __name__ == "__main__":
