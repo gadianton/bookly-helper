@@ -238,10 +238,13 @@ function setBox(name, look, lines, title) {
   paintArrows();
 }
 
-function paintArrows() {  // an arrow is ink while the box it points to is lit (path exceptions come with the paths slice)
-  for (const a of document.querySelectorAll('[data-arrow]')) {
-    const to = a.dataset.to && document.querySelector(`.box[data-box=${a.dataset.to}]`);
-    a.classList.toggle('ink', !!to && to.dataset.look === 'lit');
+function paintArrows() {  // an arrow is ink while the box it points to is lit, except the two out of Path rules:
+  for (const a of document.querySelectorAll('[data-arrow]')) {  // they follow the route path rules picked
+    let ink;
+    if (a.dataset.arrow === 'rules-fixed') ink = FIXED_PATHS.includes(turnEvents.path);
+    else if (a.dataset.arrow === 'rules-handoff') ink = turnEvents.path === 'handoff';
+    else ink = !!a.dataset.to && document.querySelector(`.box[data-box=${a.dataset.to}]`).dataset.look === 'lit';
+    a.classList.toggle('ink', ink);
   }
 }
 
@@ -269,13 +272,37 @@ function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn start
   }
 }
 
+const FIXED_PATHS = ['scope', 'signoff', 'clarify_intent', 'clarify_order', 'clarify_book', 'wait', 'handoff'];
+const REASONS = {  // the spec's reason table; the "answer to model" row carries its intent inside the reason
+  'already handed off': 'already with a person',
+  'accepted the offer to pass the question to the team': 'took the team offer',
+  'accepted the refund or exchange offer': 'accepted the offer',
+  'still unclear after the clarifying question': 'still unclear',
+  'no order picked after the order question': 'no order picked',
+  'angry': 'upset',
+};
+
+function shortReason(text) {
+  text = text.replace(/^reply model: /, 'model: ').replace(/^return policy: /, 'policy: ');
+  const model = text.match(/^answer to the reply model's question \((.*)\)$/);
+  return model ? `answer to model (${model[1]})` : REASONS[text] || text;
+}
+
+function fixedLine(text) {  // Fixed replies holds each of its lines at most once a turn
+  turnEvents.fixed = turnEvents.fixed || [];
+  if (!turnEvents.fixed.includes(text)) turnEvents.fixed.push(text);
+  setBox('fixed', 'lit', turnEvents.fixed);
+}
+
 function routeBox(e) {  // the events that light boxes; reply, tag and the rest stay step-log only
   if (e.step === 'standby') {
     turnEvents.standby = true;
     setBox('jev', 'skipped', [`skipped: ${e.why} (${e.detail})`]);
   } else if (e.step === 'tap') {
+    turnEvents.tap = true;
     setBox('jev', 'skipped', ['skipped: tap']);
   } else if (e.step === 'triage') {
+    turnEvents.triage = true;
     const r = e.result, a = e.answers || {};
     const order = r.effective_order && r.effective_order !== "can't tell" ? r.effective_order : 'no order';
     const when = `${order} · ${fmtTime(e.model_ms)}`;
@@ -287,6 +314,20 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
       if (!turnEvents.standby) setBox('jev', 'skipped', ['off: Haiku is triage']);
       setBox('standin', 'lit', [r.intent, when]);
     }
+  } else if (e.step === 'path') {
+    turnEvents.path = e.path;
+    setBox('rules', 'lit', [`${e.path}: ${shortReason(e.reason)}`]);
+    if (FIXED_PATHS.includes(e.path)) fixedLine(`${e.path} text`);
+    if (e.path === 'wait' && !turnEvents.triage && !turnEvents.tap)
+      setBox('jev', 'skipped', ['skipped: with a person']);  // the turn went to no triage and no tap
+  } else if (e.step === 'handoff') {
+    setBox('handoff', 'lit', [shortReason(e.reason)]);
+    fixedLine('handoff text');  // the handoff message is fixed text
+  } else if (e.step === 'tool_call') {
+    // a handoff tool_call adds nothing (the handoff event after it lights Handoff); of the tool
+    // lines only the return policy's needs-a-person quote shows in this slice, the rest come later
+    if (e.name === 'return_quote' && e.source === 'return policy' && e.result.result !== 'quote')
+      setBox('policy', 'lit', [`quote ${e.input.item_id} → ${e.result.result}`]);
   }
 }
 
