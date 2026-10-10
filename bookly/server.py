@@ -3,7 +3,9 @@ Keys are read only here, by the model clients; the page never sees them."""
 
 import argparse
 import json
+import os
 import queue
+import socket
 import threading
 import uuid
 from datetime import date
@@ -96,13 +98,33 @@ def chat(body: ChatIn):
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
+def free_port(start: int = 8000) -> socket.socket:
+    """A socket bound to the first free port from start up, so servers from several task folders run side by side.
+    It stays bound and listening and goes to uvicorn as is, so a second server starting at the same moment can't take
+    that port too. SO_REUSEADDR lets a restart take back the port its last run's closed connections still hold;
+    not on Windows, where it would let a second server bind a port the first holds (asyncio skips it there too)."""
+    for port in range(start, start + 100):
+        s = socket.socket()
+        if os.name != "nt":
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("127.0.0.1", port))
+            s.listen()  # with SO_REUSEADDR, Linux lets two sockets bind one port until one listens
+            return s
+        except OSError:
+            s.close()
+    raise RuntimeError(f"no free port in {start}-{start + 99}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--triage-model", choices=["jev", "haiku"], help="override triage_model in settings.toml")
     args = ap.parse_args()
     if args.triage_model:
         settings["triage_model"] = args.triage_model
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    sock = free_port()
+    print(f"Storefront at http://127.0.0.1:{sock.getsockname()[1]}", flush=True)
+    uvicorn.Server(uvicorn.Config(app, log_level="warning")).run(sockets=[sock])
 
 
 if __name__ == "__main__":
