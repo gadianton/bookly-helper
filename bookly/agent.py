@@ -143,6 +143,8 @@ class Conversation:
         start = time.perf_counter()
         already = self.state["handed_off"]
         self.state["handed_off"] = True
+        # the reason stays with the handed-off question: a later return asks for its own
+        self.state["kept_reason"] = self.state["reason_item"] = None
         self.handoff_record = {"reason": reason, "at": self.now().isoformat()}
         emit("handoff", start, reason=reason)
         # a handoff inside a later order or return turn adds to what the team already has

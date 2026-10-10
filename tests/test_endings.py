@@ -195,6 +195,17 @@ def test_after_handoff_new_requests_reach_the_agent(store, settings):
                    "path": "goodbye", "tag": "handed off", "intent": "done", "ending": False}
 
 
+def test_return_after_handoff_does_not_reuse_the_handed_off_reason(store, settings):
+    # an angry damage claim is handed off before any quote; a later return names no reason
+    model = FakeReplyModel(("reply", {"text": "Why are you returning it?", "needs_answer": True}))
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=model,
+                         jev=fake_triage(answers(intent="return", angry=1.0, reason="damaged"),
+                                         answers(intent="return", order="BL-10498")))
+    assert convo.send("my book arrived damaged, this is ridiculous")["path"] == "handoff"
+    assert convo.send("I'd also like to return The Little Prince")["path"] == "return"
+    assert '"return_reason_from_conversation": "not said"' in model.requests[-1]["system"]
+
+
 def test_second_handoff_says_added_to_what_the_team_has(store, settings):
     none_returned = lambda item: False
 
