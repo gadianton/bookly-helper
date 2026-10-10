@@ -13,6 +13,7 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from bookly.agent import Conversation
@@ -23,6 +24,7 @@ from bookly.taps import choices, valid_pick
 
 SHOPPERS = ("maya", "riley")
 app = FastAPI()
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 settings = load_settings()
 store = Store(date.today())
 ledger = Ledger()  # shared, so an item returned in one conversation stays returned in the next
@@ -51,9 +53,12 @@ def new_conversation(body: NewConversation):
         raise HTTPException(400, "unknown shopper")
     cid = uuid.uuid4().hex
     conversations[cid] = Conversation(body.shopper, store, ledger, settings)
-    orders = [{"id": o["id"], "titles": [i["title"] for i in o["items"]], "status": o["status"]}
+    orders = [{"id": o["id"], "titles": [i["title"] for i in o["items"]], "status": o["status"],
+                "carrier": o.get("carrier"), "tracking": o.get("tracking"),
+                "order_date": o["order_date"], "delivered_date": o.get("delivered_date")}
               for o in store.orders(body.shopper)]
-    return {"conversation_id": cid, "name": store.name(body.shopper), "orders": orders}
+    return {"conversation_id": cid, "name": store.name(body.shopper),
+            "today": store.today.isoformat(), "orders": orders}
 
 
 @app.post("/chat")

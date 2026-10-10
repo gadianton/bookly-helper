@@ -1,5 +1,6 @@
 import copy
 import uuid
+from datetime import timedelta
 
 import pytest
 from fastapi import HTTPException
@@ -50,3 +51,27 @@ def test_malformed_pick_or_unknown_shopper_gets_400(shopper, pick, detail):
     with pytest.raises(HTTPException) as e:
         server.chat(server.ChatIn(shopper=shopper, text="Return a book", pick=pick))
     assert (e.value.status_code, e.value.detail) == (400, detail)
+
+
+def test_conversation_start_sends_order_dates_the_storefront_cards_read(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")  # Conversation builds an Anthropic client; no call is made
+    before = set(server.conversations)
+    try:
+        maya = server.new_conversation(server.NewConversation(shopper="maya"))
+        assert maya["today"] == server.store.today.isoformat()
+        first = maya["orders"][0]
+        assert first["id"] == "BL-10533"
+        assert first["carrier"] == "UPS"
+        assert first["tracking"] == "1Z84F2W70391845527"
+        assert first["order_date"] == (server.store.today - timedelta(days=3)).isoformat()
+        assert first["delivered_date"] is None
+        assert first["titles"] == ["Tomorrow, and Tomorrow, and Tomorrow"]
+        assert first["status"] == "shipped"
+
+        riley = server.new_conversation(server.NewConversation(shopper="riley"))
+        by_id = {o["id"]: o for o in riley["orders"]}
+        assert by_id["BL-20917"]["carrier"] is None and by_id["BL-20917"]["tracking"] is None
+        assert by_id["BL-20884"]["delivered_date"] == (server.store.today - timedelta(days=4)).isoformat()
+    finally:
+        for cid in set(server.conversations) - before:
+            server.conversations.pop(cid)
