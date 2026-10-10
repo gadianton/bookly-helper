@@ -5,23 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookly</title>
 <style>
-  :root { --bg: #faf7f2; --fg: #2b2622; --muted: #7a716a; --card: #fff; --line: #e6dfd6; --accent: #8a3b12; --bot: #f1ece5; --me: #8a3b12; --me-fg: #fff; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1d1a18; --fg: #eee7df; --muted: #a59b92; --card: #272320; --line: #3a3430; --accent: #e08a5a; --bot: #312c28; --me: #e08a5a; --me-fg: #1d1a18; } }
+  :root { --bg: #faf7f2; --fg: #2b2622; --muted: #7a716a; --card: #fff; --line: #e6dfd6; --accent: #8a3b12; --bot: #f1ece5; --me: #8a3b12; --me-fg: #fff; --lit: #f7e8dd; --fail: #b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1d1a18; --fg: #eee7df; --muted: #a59b92; --card: #272320; --line: #3a3430; --accent: #e08a5a; --bot: #312c28; --me: #e08a5a; --me-fg: #1d1a18; --lit: #3a2b21; --fail: #ff8177; } }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; height: 100vh; }
   header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--line); }
   h1 { margin: 0; font: 600 24px Georgia, serif; color: var(--accent); }
   header label { color: var(--muted); font-size: 14px; }
-  main { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  header > div { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  #view-switch { display: flex; border: 1px solid var(--accent); border-radius: 8px; overflow: hidden; }
+  #view-switch button { padding: 6px 12px; border: 0; background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
+  #view-switch button[aria-pressed="true"] { background: var(--accent); color: var(--me-fg); }
+  main { display: flex; flex-direction: column; width: 100%; max-width: 1200px; margin: 0 auto; padding: 16px; flex: 1 1 auto; min-height: 0; overflow: auto; }
+  #store-view, #how-view { flex: 1 1 auto; min-height: 0; }
+  #how-view { display: flex; flex-direction: column; gap: 10px; }
+  #how-view[hidden] { display: none; }
+  @media (min-width: 1000px) { #how-view { padding-right: 412px; } }
   .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
   .book { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
   .book b { display: block; font-family: Georgia, serif; }
   .book span { color: var(--muted); font-size: 13px; }
   #orders li { margin: 4px 0; }
   #orders small { color: var(--muted); }
-  #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
-  #panel.on { display: block; }
+  #turn-failed { color: var(--fail); border: 1px solid var(--fail); border-radius: 8px; padding: 5px 10px; font-size: 13px; font-weight: 600; }
+  #turn-failed[hidden] { display: none; }
+  #diagram { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px 10px;
+    grid-template-areas: ". sf sf ." "a a a a" "jev jev st st" "b b b b" ". path path ." "c c c c" "model model fixed fixed" "d d d d" "orders policy returns handoff"; }
+  #diagram .arrow { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.15; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .box b { display: block; font: 600 13px Georgia, serif; margin-bottom: 2px; }
+  .box[data-state="lit"] { color: var(--fg); border-color: var(--accent); background: var(--lit); }
+  .box[data-state="lit"] b { color: var(--accent); }
+  .box[data-state="skipped"] { border-style: dashed; border-color: var(--muted); background: var(--bot); }
+  .box .lines > div { overflow-wrap: anywhere; }
+  [data-box="storefront"] { grid-area: sf; }
+  [data-box="jev"] { grid-area: jev; }
+  [data-box="standin"] { grid-area: st; }
+  [data-box="path"] { grid-area: path; }
+  [data-box="model"] { grid-area: model; }
+  [data-box="fixed"] { grid-area: fixed; }
+  [data-box="orders"] { grid-area: orders; }
+  [data-box="policy"] { grid-area: policy; }
+  [data-box="returns"] { grid-area: returns; }
+  [data-box="handoff"] { grid-area: handoff; }
+  #panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; flex: 1 1 auto; min-height: 96px; overflow: auto; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   .ev-triage, .ev-standby, .ev-tap { color: var(--accent); }
   .ev-turn { font-weight: 600; margin-top: 8px; }
@@ -49,11 +76,14 @@
     <label>Signed in as
       <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
     </label>
-    <label><input type="checkbox" id="panel-toggle"> Agent panel</label>
+    <div id="view-switch" role="group" aria-label="View">
+      <button type="button" data-view="storefront" aria-pressed="true">Storefront</button>
+      <button type="button" data-view="how" aria-pressed="false">How it works</button>
+    </div>
   </div>
 </header>
 <main>
-  <section>
+  <section id="store-view">
     <h2>New this week</h2>
     <div class="shelf">
       <div class="book"><b>The Midnight Library</b><span>Matt Haig · $14.99</span></div>
@@ -64,7 +94,26 @@
     <h2>Your orders</h2>
     <ul id="orders"></ul>
   </section>
-  <aside id="panel" aria-label="Agent panel"></aside>
+  <section id="how-view" hidden>
+    <div id="turn-failed" role="alert" hidden></div>
+    <div id="diagram" aria-label="The agent, live">
+      <div class="box" data-box="storefront" data-state="dark"><b>Storefront</b><div class="lines"></div></div>
+      <div class="arrow" style="grid-area:a" aria-hidden="true">&#8595;</div>
+      <div class="box" data-box="jev" data-state="dark"><b>Jev triage</b><div class="lines"></div></div>
+      <div class="box" data-box="standin" data-state="dark"><b>Haiku stand-in</b><div class="lines"></div></div>
+      <div class="arrow" style="grid-area:b" aria-hidden="true">&#8595;</div>
+      <div class="box" data-box="path" data-state="dark"><b>Path rules</b><div class="lines"></div></div>
+      <div class="arrow" style="grid-area:c" aria-hidden="true">&#8595;</div>
+      <div class="box" data-box="model" data-state="dark"><b>Haiku reply model</b><div class="lines"></div></div>
+      <div class="box" data-box="fixed" data-state="dark"><b>Fixed replies</b><div class="lines"></div></div>
+      <div class="arrow" style="grid-area:d" aria-hidden="true">&#8595;</div>
+      <div class="box" data-box="orders" data-state="dark"><b>Orders</b><div class="lines"></div></div>
+      <div class="box" data-box="policy" data-state="dark"><b>Return policy</b><div class="lines"></div></div>
+      <div class="box" data-box="returns" data-state="dark"><b>Returns</b><div class="lines"></div></div>
+      <div class="box" data-box="handoff" data-state="dark"><b>Handoff</b><div class="lines"></div></div>
+    </div>
+    <aside id="panel" aria-label="Agent panel"></aside>
+  </section>
 </main>
 
 <button id="bubble" aria-label="Open chat">&#128172;</button>
@@ -137,6 +186,18 @@ async function startConversation() {
   showChoices(HELP);
 }
 
+// ---- the "How it works" diagram ----
+const BOX_IDS = ['storefront', 'jev', 'standin', 'path', 'model', 'fixed', 'orders', 'policy', 'returns', 'handoff'];
+function setBox(id, state, lines) {
+  const el = document.querySelector(`[data-box=${id}]`);
+  el.dataset.state = state;
+  el.querySelector('.lines').replaceChildren(
+    ...(lines || []).map(t => { const d = document.createElement('div'); d.textContent = t; return d; }));
+}
+function resetBoxes() { for (const id of BOX_IDS) setBox(id, 'dark', []); }
+function showFailure(text) { const el = $('#turn-failed'); el.textContent = text; el.hidden = false; }
+function clearFailure() { $('#turn-failed').hidden = true; }
+
 const n2 = x => Number(x).toFixed(2);
 function describe(e) {
   const ms = `${Math.round(e.ms)} ms`;
@@ -200,7 +261,13 @@ async function send(text, at, n, pick) {
 }
 
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
-$('#panel-toggle').onchange = e => $('#panel').classList.toggle('on', e.target.checked);
+$('#view-switch').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  for (const b of $('#view-switch').children) b.setAttribute('aria-pressed', String(b === btn));
+  $('#store-view').hidden = btn.dataset.view === 'how';
+  $('#how-view').hidden = btn.dataset.view !== 'how';
+});
 let switches = 0;  // a message queued before a shopper switch is dropped, not sent as the new shopper
 // a new shopper's turns don't wait for the old one's: it is another conversation and its stream is dropped
 $('#shopper').onchange = () => {
