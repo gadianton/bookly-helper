@@ -7,6 +7,9 @@
 ## Use cases
 - Deliver a working Bookly customer-support agent prototype plus a 3-5 slide pitch deck, as a GitHub repo with run instructions and a 2-minute recording (2026-10-07)
 - The storefront chat is quick access to many kinds of help; the page itself shows what a shopper can see there, such as an order's status, without pushing them into the chat (2026-10-10)
+## Workflows
+### Parallel branches (2026-10-10)
+1. Work runs in parallel task folders (git worktrees), one branch each, often with several storefront servers wanted at once
 ## Constraints
 - Graded on "build it" and "sell it": a thesis, architecture, 2-3 defended decisions and what you'd change; depth over breadth (2026-10-07)
 - Direct API calls and a hand-written agent loop; no all-in-one agentic platforms (2026-10-07)
