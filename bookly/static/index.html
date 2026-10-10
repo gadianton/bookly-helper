@@ -195,9 +195,9 @@ function setBox(id, state, lines) {
   el.querySelector('.lines').replaceChildren(
     ...(lines || []).map(t => { const d = document.createElement('div'); d.textContent = t; return d; }));
 }
-let turnSeen = {fixed: []};  // the running turn's state: fixed lines so far, standby info, triage or tap seen
+let turnSeen = {};  // the running turn's state: fixed lines, model time and calls, data box lines, standby, profile
 function resetBoxes() {
-  turnSeen = {fixed: []};
+  turnSeen = {fixed: [], model: {ms: 0, calls: 0, extras: []}, data: {}};
   for (const id of BOX_IDS) setBox(id, 'dark', []);
 }
 function showFailure(text) { const el = $('#turn-failed'); el.textContent = text; el.hidden = false; }
@@ -216,6 +216,33 @@ function triageLine(e) {
   if (r.person) parts.push('wants a person');
   if (r.angry) parts.push('upset');
   return parts.join(' · ');
+}
+const SOURCE_BOX = {orders: 'orders', 'return policy': 'policy', returns: 'returns'};
+function count(n, word) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
+function modelLines() {
+  const m = turnSeen.model, p = turnSeen.profile;
+  const lines = [`${Math.round(m.ms)} ms`, count(m.calls, 'call')];
+  if (p) lines.push(`read profile: ${count(p.past_chats.length, 'past chat')}, ${count(p.preferences.length, 'preference')}`);
+  return lines.concat(m.extras);
+}
+function toolLine(e) {
+  const r = e.result ?? {};
+  const short = typeof r === 'string' ? r
+    : r.status ? r.status  // an order lookup: its status is the answer
+    : r.result === 'quote' ? `quote $${r.refund} to ${r.destination}`
+    : r.result === 'done' ? `done ${r.confirmation}`
+    : r.why ? `${r.result}: ${r.why}` : `${r.result}`;
+  const id = e.input?.item_id || e.input?.order_id;
+  let line = `${e.name}${id ? ` ${id}` : ''} → ${short}`;
+  if (line.length > 60) line = line.slice(0, 59) + '…';
+  const box = SOURCE_BOX[e.source];
+  if (box) {  // the data box for where the answer came from
+    (turnSeen.data[box] ??= []).push(line);
+    setBox(box, 'lit', turnSeen.data[box]);
+  } else {  // not offered or unknown: the reply model answers it itself
+    turnSeen.model.extras.push(line);
+    setBox('model', 'lit', modelLines());
+  }
 }
 function light(e) {  // the diagram's event mapping: which box each step lights
   switch (e.step) {
@@ -244,6 +271,17 @@ function light(e) {  // the diagram's event mapping: which box each step lights
     case 'handoff':
       setBox('handoff', 'lit', [e.reason]);
       addFixed('handoff text');
+      break;
+    case 'profile':
+      turnSeen.profile = e;  // held until the first model_call lights the box
+      break;
+    case 'model_call':
+      turnSeen.model.ms += e.ms;
+      turnSeen.model.calls++;
+      setBox('model', 'lit', modelLines());
+      break;
+    case 'tool_call':
+      if (e.name !== 'handoff') toolLine(e);  // handoff lights the Handoff box: no data line
       break;
   }
 }
