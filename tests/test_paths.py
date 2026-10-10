@@ -44,6 +44,11 @@ def test_fixed_texts(store):
     orders = store.orders("maya")
     q = fixed_text("clarify_order", orders, NOW)
     assert q.index("Tomorrow, and Tomorrow") < q.index("The Midnight Library")  # newest first
+    # the storefront's buttons list the orders or books, so its text doesn't list them again
+    assert fixed_text("clarify_order", orders, NOW, intent="order status", buttons=True) == (
+        "Which order do you mean? Or type the title of an older order.")  # Maya's oldest orders get no button
+    assert fixed_text("clarify_order", orders, NOW, intent="return", buttons=True) == "Which book would you like to return?"
+    assert "The Midnight Library" in fixed_text("clarify_order", orders, NOW, intent="order status")  # terminal keeps it
     fraud = fixed_text("handoff", orders, NOW).lower()
     assert not any(w in fraud for w in ("fraud", "suspicious", "abuse", "claims history"))
     assert "shortly" in fraud

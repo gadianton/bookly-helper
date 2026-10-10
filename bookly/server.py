@@ -54,7 +54,7 @@ def new_conversation(body: NewConversation):
     if body.shopper not in SHOPPERS:
         raise HTTPException(400, "unknown shopper")
     cid = uuid.uuid4().hex
-    conversations[cid] = Conversation(body.shopper, store, ledger, settings)
+    conversations[cid] = Conversation(body.shopper, store, ledger, settings, buttons=True)
     orders = [{"id": o["id"], "titles": [i["title"] for i in o["items"]], "status": o["status"],
                 "carrier": o.get("carrier"), "tracking": o.get("tracking"),
                 "order_date": o["order_date"], "delivered_date": o.get("delivered_date")}
