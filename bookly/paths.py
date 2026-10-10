@@ -16,12 +16,24 @@ def new_state() -> dict:
 
 
 def pick_path(t: dict, s: dict) -> dict:
+    if s["handed_off"]:
+        # after a handoff: a decline says goodbye, the team already has anger and person-asks,
+        # and only a new order-status or return request reaches the agent
+        if s["last_reply_kind"] == "closing" and t["declines"] and t["intent"] not in WORK:
+            return {"path": "goodbye", "reason": "declined after the closing question"}
+        if t["person"] or t["angry"]:
+            return {"path": "wait", "reason": "already handed off"}
+        p = _pick(t, s)
+        return p if p["path"] in ("order_status", "return", "clarify_order", "clarify_book") \
+            else {"path": "wait", "reason": "already handed off"}
+    return _pick(t, s)
+
+
+def _pick(t: dict, s: dict) -> dict:
     def go(path, reason):
         return {"path": path, "reason": reason}
 
     last = s["last_reply_kind"]
-    if s["handed_off"]:
-        return go("wait", "already handed off")
     if t["person"] or t["angry"]:
         return go("handoff", "asks for a person" if t["person"] else "angry")
     if last == "closing" and t["declines"] and t["intent"] not in WORK:

@@ -1,4 +1,5 @@
-from bookly.agent import Conversation
+from bookly.agent import MAX_MODEL_CALLS, Conversation
+from bookly.hours import wait_message
 from bookly.paths import fixed_text
 from bookly.returns import Ledger
 from bookly.taps import choices
@@ -122,3 +123,95 @@ def test_model_closing_line_not_doubled(store, settings):
     assert second["reply"] == "Your order has shipped.\n" + CLOSING  # added once (R2.2)
     assert first["ending"] is True and second["ending"] is True
     assert convo.state["last_reply_kind"] == "closing"
+
+
+ADDED = "I've added this to what the team already has. " + wait_message(NOW)
+ORDER_BUTTONS = ["BL-10533", "BL-10512", "BL-10498", "BL-10477"]
+
+
+def handed_off(store, settings, *triage, calls=()):
+    """Maya's chat right after a handoff caused by a request for a person."""
+    events = []
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW,
+                        anthropic=FakeReplyModel(*calls), jev=fake_triage(answers(person=1.0), *triage))
+    convo.send("I want to talk to a person", on_event=events.append)
+    return convo, events
+
+
+def test_after_handoff_new_requests_reach_the_agent(store, settings):
+    maya_orders, none_returned = store.orders("maya"), (lambda item: False)
+
+    # a kind-of-help tap asks which order, as before the handoff (R5.1)
+    convo, events = handed_off(store, settings)
+    n = len(events)
+    out = convo.send("Where's my order", events.append, pick={"intent": "order status"})
+    assert out["path"] == "clarify_order" and out["ending"] is False
+    assert out["reply"] == fixed_text("clarify_order", maya_orders, NOW)
+    assert "tap" in [e["step"] for e in events[n:]]
+    assert [b["pick"]["order"] for b in choices(out, maya_orders, none_returned)] == ORDER_BUTTONS
+
+    # a typed clear order-status question reaches the reply model (R5.2)
+    convo, events = handed_off(store, settings, answers(order=M),
+                              calls=[("reply", {"text": "On its way.", "needs_answer": False})])
+    n = len(events)
+    out = convo.send("where is The Midnight Library?", events.append)
+    assert out == {"reply": "On its way.\n" + CLOSING, "path": "order_status", "tag": "handed off",
+                   "intent": "order status", "ending": True}
+    assert choices(out, maya_orders, none_returned) == NO_MORE
+
+    # a typed off-topic message gets the team-has-it line (R5.3)
+    convo, events = handed_off(store, settings, answers(intent="other"))
+    n = len(events)
+    out = convo.send("do you sell gift cards?", events.append)
+    assert out == {"reply": fixed_text("wait", maya_orders, NOW) + "\n" + CLOSING, "path": "wait",
+                   "tag": "handed off", "intent": "other", "ending": True}
+    assert choices(out, maya_orders, none_returned) == NO_MORE
+
+    # an angry typed return goes to the team without a second handoff (R5.4)
+    convo, events = handed_off(store, settings, answers(intent="return", angry=1.0))
+    n = len(events)
+    out = convo.send("this is unacceptable, I want my money back", events.append)
+    assert out["path"] == "wait" and out["tag"] == "handed off"
+    assert "handoff" not in [e["step"] for e in events[n:]]
+
+    # the handoff's closing question replaced the remembered order question (R5.9)
+    events = []
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
+                        jev=fake_triage(answers(order="can't tell")))
+    convo.send("where's my order?", events.append)  # the order question
+    convo.send("no idea", events.append)  # no order picked: the chat is handed off
+    n = len(events)
+    out = convo.send("where's my order?", events.append)
+    assert out["path"] == "clarify_order" and out["ending"] is False
+    assert [b["pick"]["order"] for b in choices(out, maya_orders, none_returned)] == ORDER_BUTTONS
+
+    # the done tap after a handoff says the team still has the question (R3.6)
+    convo, events = handed_off(store, settings)
+    out = convo.send("No, that's all", events.append, pick={"intent": "done"})
+    assert out == {"reply": "Thanks for chatting with Bookly. The team still has your question and will reply here.",
+                   "path": "goodbye", "tag": "handed off", "intent": "done", "ending": False}
+
+
+def test_second_handoff_says_added_to_what_the_team_has(store, settings):
+    none_returned = lambda item: False
+
+    # a return turn whose quote answers "needs a person" (R5.5)
+    quote = ("return_quote", {"order_id": "BL-10533", "item_id": "BL-10533-1", "condition": "not stated"})
+    convo, events = handed_off(store, settings, answers(intent="return", order="BL-10533", reason="damaged"),
+                               calls=[quote])
+    n = len(events)
+    out = convo.send("Tomorrow, and Tomorrow, and Tomorrow arrived damaged", events.append)
+    assert out == {"reply": ADDED + "\n" + CLOSING, "path": "return", "tag": "handed off",
+                   "intent": "return", "ending": True}
+    assert "handoff" in [e["step"] for e in events[n:]]
+    assert choices(out, store.orders("maya"), none_returned) == NO_MORE
+
+    # an order-status turn where the reply model calls tools until its call limit runs out (R5.8)
+    lookups = [("lookup_order", {"order_id": M})] * MAX_MODEL_CALLS
+    convo, events = handed_off(store, settings, answers(order=M), calls=lookups)
+    n = len(events)
+    out = convo.send("where is The Midnight Library?", events.append)
+    assert out == {"reply": ADDED + "\n" + CLOSING, "path": "order_status", "tag": "handed off",
+                   "intent": "order status", "ending": True}
+    assert "handoff" in [e["step"] for e in events[n:]]
+    assert choices(out, store.orders("maya"), none_returned) == NO_MORE

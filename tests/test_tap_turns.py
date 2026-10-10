@@ -75,8 +75,8 @@ def test_tap_never_accepts_an_offer_or_beats_a_handoff(store, settings):
     convo.send("I want to talk to a person", on_event)  # hands the conversation off
     events = []
     out = convo.send("Return a book", events.append, pick={"intent": "return"})
-    assert out["path"] == "wait"  # the already-handed-off rule wins over a tap
-    assert "tap" not in [e["step"] for e in events]
+    assert out["path"] == "clarify_book"  # the tap asks which book, even after the handoff
+    assert "tap" in [e["step"] for e in events]
 
 
 def _context_book(system: str):

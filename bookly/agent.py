@@ -7,7 +7,7 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 
-from bookly.hours import ET
+from bookly.hours import ET, wait_message
 from bookly.paths import CLOSING, fixed_text, new_state, pick_path, tag_for
 from bookly.triage import anthropic_client, ask_haiku, ask_jev, triage
 
@@ -71,11 +71,6 @@ class Conversation:
         self.turn += 1
         emit = lambda step, start, **kw: on_event({"step": step, "ms": _ms(start), **kw})
         s = self.state
-
-        if s["handed_off"]:  # before every path rule: no triage, no model, no tap
-            start = time.perf_counter()
-            emit("path", start, path="wait", reason="already handed off")
-            return self._finish(text, fixed_text("wait", self.orders, self.now()), "wait", emit)
 
         if pick is None:
             start = time.perf_counter()
@@ -146,10 +141,14 @@ class Conversation:
 
     def _handoff(self, text, reason, emit, path="handoff", intent=None):
         start = time.perf_counter()
+        already = self.state["handed_off"]
         self.state["handed_off"] = True
         self.handoff_record = {"reason": reason, "at": self.now().isoformat()}
         emit("handoff", start, reason=reason)
-        return self._finish(text, fixed_text("handoff", self.orders, self.now()), path, emit, intent=intent)
+        # a handoff inside a later order or return turn adds to what the team already has
+        reply = (f"I've added this to what the team already has. {wait_message(self.now())}" if already
+                 else fixed_text("handoff", self.orders, self.now()))
+        return self._finish(text, reply, path, emit, intent=intent)
 
     # ---- the reply model ----
     def _load_profile(self, emit):
