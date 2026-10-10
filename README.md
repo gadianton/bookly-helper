@@ -4,7 +4,7 @@ A customer-support agent prototype for Bookly, a fictional online bookstore. It 
 order status and returns/refunds, and hands everything else to a person or answers with a polite scope reply.
 
 The idea is "think fast, act right":
-- **Fast:** every typed message is triaged by Jev (TypeSafe AI's System One model) in about 0.2 s; a storefront tap skips it.
+- **Fast:** every typed message is triaged by Jev (TypeSafe AI's System One model) in about 0.2 s; a storefront tap skips it, except an answer the reply model proposed, which is sent as if typed.
 - **Right:** replies are written by Claude Haiku 5.5, grounded in tool results. Refund amounts, dates and policy
   are computed in code, never by the model.
 - **Backstop:** unclear requests get one clarifying question. Upset customers, policy exceptions and anything still

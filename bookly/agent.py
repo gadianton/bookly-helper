@@ -35,7 +35,10 @@ _TOOLS = {
                   "text": {"type": "string"}, "needs_answer": {"type": "boolean"},
                   "offer_ids": {"type": "array", "items": {"type": "string"},
                                 "description": "The pending offers this reply states and asks the customer to accept "
-                                "or decline. Leave it out when the reply asks about no offer."}},
+                                "or decline. Leave it out when the reply asks about no offer."},
+                  "answers": {"type": "array", "items": {"type": "string"},
+                              "description": "When the reply asks the customer anything: 2-3 short answers the customer might give, "
+                              "in their own voice. Shown as buttons; a tap sends it as if typed."}},
                   "required": ["text", "needs_answer"]}},
 }
 TOOLS_BY_PATH = {
@@ -230,7 +233,11 @@ class Conversation:
                         offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
-                    return self._finish(text, reply, path, emit, needs, offer, t["intent"])
+                    out = self._finish(text, reply, path, emit, needs, offer, t["intent"])
+                    answers = b.input.get("answers")  # any reply that asks, needed to finish or not
+                    out["answers"] = [a.strip() for a in answers if isinstance(a, str) and a.strip()][:3] \
+                        if isinstance(answers, list) else []
+                    return out
                 if b.name == "handoff":
                     emit("tool_call", start, name="handoff", source=None, input=b.input, result="handed off")
                     return self._handoff(text, "reply model: " + b.input.get("reason", ""), emit, path, t["intent"])

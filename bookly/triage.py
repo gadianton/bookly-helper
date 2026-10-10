@@ -15,7 +15,15 @@ from typesafe_sdk import (Choice, Noul, RetryPolicy, Score, TypeSafeAPITimeoutEr
 
 INTENTS = ["order status", "return", "other", "unclear"]
 MOODS = ["calm", "annoyed", "angry"]
-REASONS = ["changed mind", "damaged", "defective", "wrong item", "not said"]
+# Descriptions go to Jev: undescribed, it read "I didn't like it" as "not said".
+REASONS = {
+    "changed mind": "no longer wants the book: didn't like it, not their taste, not what they expected, "
+                    "bought it by mistake, or found it elsewhere",
+    "damaged": "the book arrived physically damaged, such as torn, bent, wet or scuffed",
+    "defective": "a printing or binding fault, such as missing, blank or misprinted pages or a loose binding",
+    "wrong item": "they received a different book or edition from the one they ordered",
+    "not said": "the latest message gives no reason for the return",
+}
 NOT_LISTED = "names an order not in this list"
 CANT_TELL = "can't tell"
 
@@ -53,7 +61,7 @@ def jev_questions(order_ids: list[str]) -> dict:
             # latest message only: code keeps an earlier reason for the book it was given for (bookly/agent.py)
             instructions="Why does the customer want to return a book, going by their latest message only? "
             "Pick 'not said' when the latest message gives no reason, even if an earlier message did.",
-            criteria={r: None for r in REASONS},
+            criteria=REASONS,
         ),
     }
 
@@ -127,8 +135,9 @@ def _haiku_tool(order_ids: list[str]) -> dict:
         elif isinstance(q, Noul):
             props[name] = {"type": "boolean", "description": q.instructions}
         else:
-            options = list(q.criteria)
-            props[name] = {"type": "string", "enum": options, "description": q.instructions}
+            described = "; ".join(f"'{k}' = {v}" for k, v in q.criteria.items() if v) if isinstance(q, Choice) else ""
+            props[name] = {"type": "string", "enum": list(q.criteria),
+                           "description": q.instructions + (f" {described}." if described else "")}
     return {"name": "triage", "description": "Record the triage of the customer's latest message.",
             "input_schema": {"type": "object", "properties": props, "required": list(props)}}
 
