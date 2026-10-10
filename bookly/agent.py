@@ -49,8 +49,9 @@ def _ms(start: float) -> float:
 
 
 class Conversation:
-    def __init__(self, shopper_id, store, ledger, settings, now=None, anthropic=None, jev=None):
+    def __init__(self, shopper_id, store, ledger, settings, now=None, anthropic=None, jev=None, buttons=False):
         self.shopper_id, self.store, self.ledger, self.settings = shopper_id, store, ledger, settings
+        self.buttons = buttons  # the storefront: buttons follow its questions, so their text skips the list
         self._now = now
         self.anthropic = anthropic or anthropic_client(settings["anthropic"]["base_url"])
         self.jev = jev or ask_jev
@@ -114,7 +115,8 @@ class Conversation:
         if p["path"] == "handoff":
             return self._handoff(text, p["reason"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
-            return self._finish(text, fixed_text(p["path"], self.orders, self.now()), p["path"], emit, intent=t["intent"])
+            reply = fixed_text(p["path"], self.orders, self.now(), intent=t["intent"], buttons=self.buttons)
+            return self._finish(text, reply, p["path"], emit, intent=t["intent"])
         return self._run_model(text, p["path"], t, emit)
 
     # ---- endings ----
