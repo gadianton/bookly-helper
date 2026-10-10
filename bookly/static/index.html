@@ -287,8 +287,9 @@ function showOrderCards(c) {  // the two cards above the shelves, filled from th
   if (delivered.length) recent.textContent = `Most recent: ${delivered[0].titles.join(', ')}`;
   const all = document.createElement('a');
   all.className = 'all-orders';
+  all.href = '#';  // an href makes the link reachable and usable from the keyboard
   all.textContent = 'All orders →';
-  all.onclick = () => $('#orders').parentElement.classList.toggle('open');  // today's order list, hidden until asked for
+  all.onclick = e => { e.preventDefault(); $('#orders').parentElement.classList.toggle('open'); };  // today's order list, hidden until asked for
   summary.append(count, recent, all);
 }
 function bookCard(b) {
