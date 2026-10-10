@@ -173,6 +173,7 @@ async function startConversation() {
   $('#msgs').textContent = '';
   $('#panel').textContent = '';
   resetBoxes();
+  clearFailure();
   add($('#panel'), 'ev ev-turn', `new conversation: ${c.name}`);
   $('#orders').innerHTML = '';
   for (const o of c.orders) {
@@ -316,7 +317,10 @@ function describe(e) {
 function onEvent(e) {
   if (e.step === 'reply') add($('#msgs'), 'msg bot', e.text);
   if (e.step === 'choices') showChoices(e.choices);
-  if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+  if (e.step === 'error') {
+    showFailure(`turn failed: ${e.error}`);
+    add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+  }
   const line = describe(e);
   light(e);
   if (line) add($('#panel'), `ev ev-${e.step}`, line);
@@ -327,6 +331,7 @@ async function send(text, at, n, pick) {
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
   resetBoxes();  // a new turn: every box back to dark, then the storefront lights with what started it
+  clearFailure();
   setBox('storefront', 'lit', [pick ? `tapped: ${text}`
     : `typed: ${text.length > 40 ? text.slice(0, 40) + '…' : text}`]);
   add($('#msgs'), 'msg me', text);
