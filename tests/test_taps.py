@@ -1,6 +1,7 @@
+from bookly.agent import Conversation
 from bookly.returns import Ledger
 from bookly.taps import choices, valid_pick
-from tests.conftest import TODAY
+from tests.conftest import NOW, TODAY, FakeReplyModel, answers, fake_triage
 
 
 def _returned_prince(store):
@@ -75,3 +76,17 @@ def test_buttons_only_on_the_fixed_questions(store):
     ]
     for out in ({"path": "order_status", "intent": "order status"}, {"path": "handoff"}, {"path": "scope"}):
         assert choices(out, maya, none_returned) == []
+
+
+def test_proposed_answers_carry_no_pick_and_stop_at_three(store, settings):
+    def turn(reply):
+        convo = Conversation("maya", store, Ledger(), settings, now=NOW,
+                             anthropic=FakeReplyModel(("reply", reply)), jev=fake_triage(answers(order="BL-10498")))
+        return choices(convo.send("Where is my Little Prince?"), convo.orders, lambda item: False)
+
+    asked = turn({"text": "Which one?", "needs_answer": True, "answers": ["The first", " ", "B", "C", "D"]})
+    assert asked == [{"label": "The first"}, {"label": "B"}, {"label": "C"}]  # blanks dropped, at most 3, no pick
+    # an optional offer counts as asking, even on a finished reply
+    assert turn({"text": "Delivered. Want to return it?", "needs_answer": False, "answers": ["Yes, return it"]}) == [
+        {"label": "Yes, return it"}]
+    assert turn({"text": "Delivered.", "needs_answer": False}) == []
