@@ -28,7 +28,8 @@ def test_every_ending_ends_with_the_closing_question(store, settings):
         ("hi", answers(intent="unclear")),
         ("still no idea", answers(intent="unclear")),
     ])
-    assert out == {"reply": fixed_text("handoff", convo.orders, NOW) + "\n" + CLOSING,
+    assert out == {"reply": "I've passed this to a member of the Bookly team, who will take it from here. "
+                            + wait_message(NOW) + "\n" + CLOSING,
                    "path": "handoff", "tag": "handed off", "intent": "unclear", "ending": True}
     assert convo.state["last_reply_kind"] == "closing"
 
@@ -37,7 +38,8 @@ def test_every_ending_ends_with_the_closing_question(store, settings):
         ("do you sell gift cards?", answers(intent="other")),
         ("no", answers(intent="other")),
     ])
-    assert out == {"reply": fixed_text("signoff", convo.orders, NOW) + "\n" + CLOSING,
+    assert out == {"reply": "No problem. Our team is here Monday to Friday, 9am to 6pm ET, "
+                            "if you'd like to ask them later.\n" + CLOSING,
                    "path": "signoff", "tag": "asked", "intent": "other", "ending": True}
     assert convo.state["last_reply_kind"] == "closing"
 
@@ -163,7 +165,8 @@ def test_after_handoff_new_requests_reach_the_agent(store, settings):
     convo, events = handed_off(store, settings, answers(intent="other"))
     n = len(events)
     out = convo.send("do you sell gift cards?", events.append)
-    assert out == {"reply": fixed_text("wait", maya_orders, NOW) + "\n" + CLOSING, "path": "wait",
+    assert out == {"reply": "A member of the Bookly team has this conversation now. " + wait_message(NOW)
+                            + "\n" + CLOSING, "path": "wait",
                    "tag": "handed off", "intent": "other", "ending": True}
     assert choices(out, maya_orders, none_returned) == NO_MORE
 
