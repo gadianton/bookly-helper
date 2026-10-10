@@ -41,10 +41,25 @@
   main { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
   @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
   #storefront { display: flex; flex-direction: column; gap: 36px; }
-  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-  .book { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
-  .book b { display: block; font-family: Georgia, serif; }
-  .book span { color: var(--muted); font-size: 13px; }
+  /* Coloured cover blocks — colour rule: the first title's character codes,
+     summed, mod 5, index the mockup's five colour pairs:
+     0 #1E3A5F/#F2EBD9  1 #C2462B/#FFF4E8  2 #F0C64A/#2A2108
+     3 #2B2440/#EDE4FF  4 #0F7B6C/#E9FFF8 */
+  .cover-block { border-radius: 4px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; }
+
+  /* Staff-pick shelves */
+  .shelf-section h2 { margin: 0; font: 700 30px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.02em; }
+  .shelf { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+  .book { display: flex; flex-direction: column; gap: 6px; }
+  .cover { position: relative; padding: 18px; border-radius: 14px; background: var(--surface); display: grid; place-items: center; }
+  .cover img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; box-shadow: 0 8px 18px rgba(18,20,26,.16); display: block; }
+  .cover .cover-block { width: 100%; aspect-ratio: 2 / 3; padding: 12px; font-size: 17px; line-height: 1.1; box-shadow: 0 8px 18px rgba(18,20,26,.16); }
+  .pill { position: absolute; top: 10px; left: 10px; z-index: 1; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 600; }
+  .book b { font-weight: 700; margin-top: 4px; }
+  .book .author { color: var(--muted); font-size: 14px; }
+  .buy { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+  .price { font-weight: 700; font-size: 16px; }
+  .add { font-weight: 600; font-size: 14px; padding: 8px 14px; min-height: 36px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; }
   #orders li { margin: 4px 0; }
   #orders small { color: var(--muted); }
   #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
@@ -99,13 +114,6 @@
 </header>
 <main>
   <div id="storefront">
-    <h2>New this week</h2>
-    <div class="shelf">
-      <div class="book"><b>The Midnight Library</b><span>Matt Haig · $14.99</span></div>
-      <div class="book"><b>Circe</b><span>Madeline Miller · $17.99</span></div>
-      <div class="book"><b>Klara and the Sun</b><span>Kazuo Ishiguro · $16.99</span></div>
-      <div class="book"><b>Fourth Wing</b><span>Rebecca Yarros · $19.99</span></div>
-    </div>
     <h2>Your orders</h2>
     <ul id="orders"></ul>
   </div>
@@ -130,6 +138,79 @@ function add(parent, cls, text) {
   parent.appendChild(el);
   parent.scrollTop = parent.scrollHeight;
   return el;
+}
+
+// Staff picks: Jonathan's twelve books, prices from the US editions in checks/editions.tsv
+const BOOKS = [
+  {shelf: 'Business & growth', title: 'How to Win Friends and Influence People', author: 'Dale Carnegie', price: '$19.99', cover: 'how-to-win-friends'},
+  {shelf: 'Business & growth', title: 'The 7 Habits of Highly Effective People', author: 'Stephen R. Covey', price: '$19.99', cover: '7-habits'},
+  {shelf: 'Business & growth', title: 'Gap Selling', author: 'Keenan', price: '$17.99', cover: 'gap-selling'},
+  {shelf: 'Business & growth', title: 'Start with Why', author: 'Simon Sinek', price: '$31.00', cover: 'start-with-why'},
+  {shelf: 'Business & growth', title: 'Good to Great', author: 'Jim Collins', price: '$35.00', cover: 'good-to-great'},
+  {shelf: 'Business & growth', title: 'Quiet', author: 'Susan Cain', price: '$23.00', cover: 'quiet'},
+  {shelf: 'Business & growth', title: 'Born a Crime', author: 'Trevor Noah', price: '$30.00', cover: 'born-a-crime'},
+  {shelf: 'Fantasy', title: 'Changes', author: 'Jim Butcher', price: '$12.99', cover: 'changes'},
+  {shelf: 'Fantasy', title: 'Theft of Swords', author: 'Michael J. Sullivan', price: '$21.99', cover: 'theft-of-swords'},
+  {shelf: 'Fantasy', title: 'Mistborn: The Final Empire', author: 'Brandon Sanderson', price: '$23.99', cover: 'mistborn'},
+  {shelf: 'Fantasy', title: 'He Who Fights with Monsters 4', author: 'Shirtaloon', price: '$35.00', cover: 'hwfwm-4'},
+  {shelf: 'Fantasy', title: 'Solo Leveling, Vol. 1', author: 'Chugong', price: '$20.00', cover: 'solo-leveling-1'},
+];
+const COVER_COLOURS = [['#1E3A5F', '#F2EBD9'], ['#C2462B', '#FFF4E8'], ['#F0C64A', '#2A2108'], ['#2B2440', '#EDE4FF'], ['#0F7B6C', '#E9FFF8']];
+function coverColour(title) {  // the colour rule: the first title's character codes, summed, mod 5
+  let sum = 0;
+  for (const ch of title) sum += ch.charCodeAt(0);
+  return COVER_COLOURS[sum % 5];
+}
+function coverBlock(title, size) {  // a coloured block standing in for a cover
+  const [bg, fg] = coverColour(title);
+  const el = document.createElement('div');
+  el.className = 'cover-block' + (size ? ' ' + size : '');
+  el.style.background = bg;
+  el.style.color = fg;
+  el.textContent = title;
+  return el;
+}
+function bookCard(b) {
+  const card = document.createElement('article');
+  card.className = 'book';
+  const well = document.createElement('div');
+  well.className = 'cover';
+  const pill = document.createElement('span');
+  pill.className = 'pill';
+  pill.textContent = 'Staff pick';
+  const img = document.createElement('img');
+  img.src = `/static/covers/${b.cover}.jpg`;
+  img.alt = b.title;
+  img.onerror = () => img.replaceWith(coverBlock(b.title));  // a cover that fails to load
+  well.append(pill, img);
+  const title = document.createElement('b');
+  title.textContent = b.title;
+  const author = document.createElement('span');
+  author.className = 'author';
+  author.textContent = b.author;
+  const buy = document.createElement('div');
+  buy.className = 'buy';
+  const price = document.createElement('span');
+  price.className = 'price';
+  price.textContent = b.price;
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';  // inert: the demo is about support, not shopping
+  addBtn.className = 'add';
+  addBtn.textContent = 'Add to bag';
+  buy.append(price, addBtn);
+  card.append(well, title, author, buy);
+  return card;
+}
+for (const shelf of [...new Set(BOOKS.map(b => b.shelf))]) {  // the two shelves, below the orders area
+  const section = document.createElement('section');
+  section.className = 'shelf-section';
+  const h2 = document.createElement('h2');
+  h2.textContent = `Jonathan's picks · ${shelf}`;
+  const row = document.createElement('div');
+  row.className = 'shelf';
+  for (const b of BOOKS.filter(x => x.shelf === shelf)) row.appendChild(bookCard(b));
+  section.append(h2, row);
+  $('#storefront').appendChild(section);
 }
 
 const HELP = [{label: "Where's my order", pick: {intent: 'order status'}},
