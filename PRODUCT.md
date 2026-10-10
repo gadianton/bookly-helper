@@ -10,6 +10,7 @@
 - Direct API calls and a hand-written agent loop; no all-in-one agentic platforms (2026-10-07)
 - Brief suggests about 4 hours; due Friday 2026-10-09, end of weekend 2026-10-11 at the latest (2026-10-07)
 - Runs locally; nothing hosted online (2026-10-07)
+- Chosen visual design: Look B (Modern retail) for the storefront and chat, Layout 1 (left-to-right flow) for the architecture view, picked in Claude Design (2026-10-10)
 - Jev (TypeSafe docs): independent questions over the same state go in one request and are answered side by side; yes/no answers carry no separate confidence (distance from 0.5 serves); set confidence cutoffs per action risk, starting near 0.5, and tune them on your own data (2026-10-07)
 ## Assumptions
 - Ecommerce support costs: a human-handled ticket about $2.70-5.60 (live chat $10-16), an AI resolution about $0.50-2; realistic net saving 20-35% in year one; where-is-my-order is 30-40% of volume — mostly vendor sources, check against Gartner before quoting (2026-10-07)
