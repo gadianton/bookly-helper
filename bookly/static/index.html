@@ -87,8 +87,11 @@
   .ev-turn { font-weight: 600; margin-top: 8px; }
   /* Chat */
   #bubble { position: fixed; z-index: 10; right: 24px; bottom: 24px; height: 56px; padding: 0 20px 0 16px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 10px 24px rgba(35,68,201,.35); }
-  #chat { display: none; position: fixed; z-index: 10; right: 24px; bottom: 96px; width: 380px; max-width: calc(100vw - 48px); height: 540px; max-height: calc(100vh - 120px); background: #fff; border: 1px solid #E4E7EE; border-radius: 20px; box-shadow: 0 24px 60px rgba(18,20,26,.20); overflow: hidden; flex-direction: column; }
-  #chat.open { display: flex; }
+  #chat { position: fixed; z-index: 10; right: 24px; bottom: 96px; width: 380px; max-width: calc(100vw - 48px); height: 540px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; background: #fff; border: 1px solid #E4E7EE; border-radius: 20px; box-shadow: 0 24px 60px rgba(18,20,26,.20); overflow: hidden;
+          transform-origin: 100% 100%; transform: scale(0.95); opacity: 0; visibility: hidden; pointer-events: none;
+          transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 0s 150ms; }
+  #chat.open { transform: scale(1); opacity: 1; visibility: visible; pointer-events: auto;
+             transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1), visibility 0s; }
   #chat header { padding: 16px; background: var(--ink); color: #fff; display: flex; align-items: center; gap: 12px; border: 0; }
   .badge { width: 36px; height: 36px; border-radius: 12px; background: var(--accent); display: grid; place-items: center; font: 700 15px 'Bricolage Grotesque', sans-serif; }
   .online { font-size: 12px; color: #B9BECB; display: flex; align-items: center; gap: 6px; }
@@ -102,11 +105,39 @@
   .reply-card .cover-block { width: 32px; height: 48px; flex: none; border-radius: 3px; }
   .reply-card .text { font-size: 13px; line-height: 1.35; }
   .choices { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; align-self: flex-start; }
-  .choice { font-weight: 600; font-size: 14px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--accent-tint-border); border-radius: 12px; background: var(--accent-tint); color: var(--accent); cursor: pointer; }
+  .choice { font-weight: 600; font-size: 14px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--accent-tint-border); border-radius: 12px; background: var(--accent-tint); color: var(--accent); cursor: pointer;
+            animation: choice-in 200ms ease-out backwards; }
+  .choice:nth-child(2) { animation-delay: 50ms; }
+  .choice:nth-child(3) { animation-delay: 100ms; }
   .choice[disabled] { background: var(--surface); border-color: var(--line-strong); color: var(--muted); cursor: default; }
   form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
   #input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; color: var(--fg); }
   #send { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; }
+
+  /* Motion (design/emil-design-eng.md): presses scale 0.97 in 160 ms ease-out;
+     the chat opens from its bottom-right corner in 200 ms, closes in 150 ms;
+     quick replies fade up 6 px in 200 ms, staggered 50 ms. */
+  button:not([disabled]) { transition: transform 160ms ease-out; }
+  button:not([disabled]):active { transform: scale(0.97); }
+  @keyframes choice-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes choice-fade { from { opacity: 0; } }
+
+  @media (hover: hover) and (pointer: fine) {
+    a:hover { color: var(--accent-hover); }
+    .chip:hover { background: #E9EBF0; }
+    .chip.active:hover { background: #2A2E3A; }
+    .add:hover { background: #2A2E3A; }
+    #bubble:hover, #send:hover { background: var(--accent-hover); }
+    .choice:not([disabled]):hover { border-color: #A9BAFB; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button:not([disabled]) { transition: none; }
+    button:not([disabled]):active { transform: none; }
+    #chat { transform: none; transition: opacity 150ms ease-out, visibility 0s 150ms; }
+    #chat.open { transform: none; transition: opacity 200ms ease-out, visibility 0s; }
+    .choice { animation-name: choice-fade; }
+  }
 </style>
 </head>
 <body>
@@ -225,11 +256,10 @@ function showOrderCards(c) {  // the two cards above the shelves, filled from th
                 delivered: `Delivered ${daysAgo(newest.delivered_date, c.today)}`}[newest.status];
   const card = $('.order-card');
   card.textContent = '';
-  const [bg, fg] = coverColour(newest.titles[0]);
+  const [bg] = coverColour(newest.titles[0]);  // the mock's orders-card block is a plain colour
   const block = document.createElement('div');
   block.className = 'cover-block';
   block.style.background = bg;
-  block.style.color = fg;
   const body = document.createElement('div');
   for (const [cls, text] of [['status-label', label], ['order-title', newest.titles.join(', ')],
                               ['order-line', `${newest.id} · ${when}`]]) {
@@ -395,6 +425,7 @@ function replyCard(order) {  // the mockup's order card, built from the lookup's
   card.className = 'reply-card';
   const block = coverBlock(titles[0]);
   block.textContent = '';  // the mock's small block is a plain colour: the title sits beside it
+  block.style.color = '';  // no text, so the mock sets no text colour either
   const text = document.createElement('div');
   text.className = 'text';
   const title = document.createElement('b');
