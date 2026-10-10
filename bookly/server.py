@@ -97,15 +97,16 @@ def chat(body: ChatIn):
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
-def free_port(start: int = 8000) -> int:
-    """First port from start up that nothing listens on, so servers from several task folders run side by side."""
+def free_port(start: int = 8000) -> socket.socket:
+    """A socket bound to the first free port from start up, so servers from several task folders run side by side.
+    It stays bound and goes to uvicorn as is, so a second server starting at the same moment can't take that port too."""
     for port in range(start, start + 100):
-        with socket.socket() as s:
-            try:
-                s.bind(("127.0.0.1", port))
-                return port
-            except OSError:
-                continue
+        s = socket.socket()
+        try:
+            s.bind(("127.0.0.1", port))
+            return s
+        except OSError:
+            s.close()
     raise RuntimeError(f"no free port in {start}-{start + 99}")
 
 
@@ -115,9 +116,9 @@ def main():
     args = ap.parse_args()
     if args.triage_model:
         settings["triage_model"] = args.triage_model
-    port = free_port()
-    print(f"Storefront at http://127.0.0.1:{port}", flush=True)
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    sock = free_port()
+    print(f"Storefront at http://127.0.0.1:{sock.getsockname()[1]}", flush=True)
+    uvicorn.Server(uvicorn.Config(app, log_level="warning")).run(sockets=[sock])
 
 
 if __name__ == "__main__":

@@ -53,6 +53,18 @@ def test_malformed_pick_or_unknown_shopper_gets_400(shopper, pick, detail):
     assert (e.value.status_code, e.value.detail) == (400, detail)
 
 
+def test_free_port_holds_its_port_so_the_next_server_takes_another():
+    first = server.free_port(18000)
+    try:
+        second = server.free_port(first.getsockname()[1])  # first is still bound, as when two servers start at once
+        try:
+            assert second.getsockname()[1] > first.getsockname()[1]
+        finally:
+            second.close()
+    finally:
+        first.close()
+
+
 def test_conversation_start_sends_order_dates_the_storefront_cards_read(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")  # Conversation builds an Anthropic client; no call is made
     before = set(server.conversations)
