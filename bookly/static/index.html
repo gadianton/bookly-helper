@@ -97,6 +97,10 @@
   .msg { padding: 10px 14px; border-radius: 16px; max-width: 85%; white-space: pre-wrap; }
   .msg.bot { align-self: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 16px 16px 16px 6px; }
   .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 16px 16px 6px 16px; }
+  .msg.reply { max-width: 88%; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .reply-card { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 12px; background: var(--surface); }
+  .reply-card .cover-block { width: 32px; height: 48px; flex: none; border-radius: 3px; }
+  .reply-card .text { font-size: 13px; line-height: 1.35; }
   .choices { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; align-self: flex-start; }
   .choice { font-weight: 600; font-size: 14px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--accent-tint-border); border-radius: 12px; background: var(--accent-tint); color: var(--accent); cursor: pointer; }
   .choice[disabled] { background: var(--surface); border-color: var(--line-strong); color: var(--muted); cursor: default; }
@@ -378,8 +382,38 @@ function describe(e) {
   }
 }
 
+let turnOrders = null;  // per turn: {path, orders: Map<id, result>, handedOff}
+function trackTurn(e) {  // the reply card reads the turn's path, its order lookups and any handoff
+  if (e.step === 'path') turnOrders = {path: e.path, orders: new Map(), handedOff: false};
+  if (turnOrders && e.step === 'tool_call' && e.name === 'lookup_order' && e.result && e.result.id)
+    turnOrders.orders.set(e.result.id, e.result);  // a lookup repeated for the same order still counts as one
+  if (turnOrders && e.step === 'handoff') turnOrders.handedOff = true;
+}
+function replyCard(order) {  // the mockup's order card, built from the lookup's result
+  const titles = order.titles || order.items.map(i => i.title);  // a lookup result carries items
+  const card = document.createElement('div');
+  card.className = 'reply-card';
+  const block = coverBlock(titles[0]);
+  block.textContent = '';  // the mock's small block is a plain colour: the title sits beside it
+  const text = document.createElement('div');
+  text.className = 'text';
+  const title = document.createElement('b');
+  title.textContent = titles.join(', ');
+  const line = document.createElement('div');
+  line.textContent = order.tracking ? `${order.id} · ${order.tracking}` : order.id;
+  text.append(title, line);
+  card.append(block, text);
+  return card;
+}
+
 function onEvent(e) {
+  trackTurn(e);
   if (e.step === 'reply') add($('#msgs'), 'msg bot', e.text);
+  if (e.step === 'reply' && turnOrders && turnOrders.path === 'order_status' && !turnOrders.handedOff && turnOrders.orders.size === 1) {
+    const bubble = $('#msgs').lastElementChild;  // the bubble the line above just added
+    bubble.classList.add('reply');
+    bubble.appendChild(replyCard(turnOrders.orders.values().next().value));
+  }
   if (e.step === 'choices') showChoices(e.choices);
   if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
   const line = describe(e);
@@ -391,6 +425,7 @@ async function send(text, at, n, pick) {
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
   add($('#msgs'), 'msg me', text);
+  turnOrders = null;  // a fresh turn: nothing of the last one may bleed into it
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text, pick})});
