@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #faf7f2; --fg: #2b2622; --muted: #7a716a; --card: #fff; --line: #e6dfd6; --accent: #8a3b12; --bot: #f1ece5; --me: #8a3b12; --me-fg: #fff; }
+  :root { --bg: #faf7f2; --fg: #2b2622; --muted: #7a716a; --card: #fff; --line: #e6dfd6; --accent: #8a3b12; --bot: #f1ece5; --me: #8a3b12; --me-fg: #fff; --ease: cubic-bezier(0.23, 1, 0.32, 1); }
   @media (prefers-color-scheme: dark) { :root { --bg: #1d1a18; --fg: #eee7df; --muted: #a59b92; --card: #272320; --line: #3a3430; --accent: #e08a5a; --bot: #312c28; --me: #e08a5a; --me-fg: #1d1a18; } }
   * { box-sizing: border-box; }
   body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
@@ -17,10 +17,10 @@
   header label { color: var(--muted); font-size: 14px; }
   main { display: grid; }
   main:has(#arch-view:not(.hidden)) { background: #FFFFFF; min-height: calc(100vh - var(--header-h, 0px)); }
-  #store-view, #arch-view { grid-area: 1 / 1; }
+  #store-view, #arch-view { grid-area: 1 / 1; transition: opacity 200ms var(--ease), visibility 0s 0ms; }
   #store-view { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
   @media (max-width: 800px) { #store-view { grid-template-columns: 1fr; } }
-  #store-view.hidden, #arch-view.hidden { visibility: hidden; }
+  #store-view.hidden, #arch-view.hidden { opacity: 0; visibility: hidden; transition: opacity 200ms var(--ease), visibility 0s 200ms; }
   #head-controls { display: flex; gap: 12px; align-items: center; }
   .switch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .switch button { border: 0; padding: 7px 12px; font: 600 13px system-ui, sans-serif; background: transparent; color: var(--muted); cursor: pointer; }
@@ -48,12 +48,34 @@
   .box[data-look="lit"] { background: #FFFFFF; border: 2px solid var(--ink); box-shadow: 0 0 0 4px var(--accent-tint); color: var(--ink); }
   .box[data-look="skipped"] { background: #FFFFFF; border: 2px dashed var(--muted); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
   .box[data-look="idle"] { background: var(--surface); border: 2px dashed var(--line-strong); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
+  /* columns (spec R10): Storefront 0, Jev and stand-in 1, rules 2, fixed/model/handoff 3, data 4;
+     an arrow carries the column of the box it points into */
+  .box[data-box="storefront"] { --col: 0; }
+  .box[data-box="jev"], .box[data-box="standin"] { --col: 1; }
+  .box[data-box="rules"] { --col: 2; }
+  .box[data-box="fixed"], .box[data-box="model"], .box[data-box="handoff"] { --col: 3; }
+  .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --col: 4; }
+  [data-arrow="storefront-jev"], [data-arrow="jev-standin"] { --col: 1; }
+  [data-arrow="jev-rules"] { --col: 2; }
+  [data-arrow="rules-model"], [data-arrow="rules-fixed"], [data-arrow="rules-handoff"] { --col: 3; }
+  [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"],
+  [data-arrow="to-orders"], [data-arrow="to-policy"], [data-arrow="to-returns"] { --col: 4; }
   [data-arrow] { position: absolute; overflow: visible; }
   [data-arrow] .line { fill: none; stroke: var(--line-strong); stroke-width: 2; stroke-linecap: round; }
   [data-arrow] .head { stroke: none; fill: var(--line-strong); }
   [data-arrow].ink .line { stroke: var(--ink); }
   [data-arrow].ink .head { fill: var(--ink); }
   [data-arrow="jev-standin"] .line { stroke-dasharray: 6 6; }
+  /* motion (spec R10): only colours and opacity animate — never the transform or a
+     size; lit and skipped fade in 200 ms after 100 ms + 40 ms per column, dimming
+     back to idle is 100 ms with no delay */
+  .box { transition: background-color 100ms var(--ease), border-color 100ms var(--ease),
+                   color 100ms var(--ease), box-shadow 100ms var(--ease); }
+  .box[data-look="lit"], .box[data-look="skipped"] { transition-duration: 200ms;
+                                                     transition-delay: calc(100ms + 40ms * var(--col)); }
+  [data-arrow] .line, [data-arrow] .head { transition: stroke 100ms var(--ease), fill 100ms var(--ease); }
+  [data-arrow].ink .line, [data-arrow].ink .head { transition-duration: 200ms;
+                                                   transition-delay: calc(100ms + 40ms * var(--col)); }
   .standin-label { position: absolute; left: 346px; top: 404px; width: 96px; font-size: 12px; line-height: 16px; color: var(--muted); }
   #panel { position: absolute; left: 64px; top: 588px; width: 932px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
@@ -105,7 +127,7 @@
       <ul id="orders"></ul>
     </section>
   </div>
-  <div id="arch-view">
+  <div id="arch-view" class="hidden">
     <div id="arch">
       <div class="arch-title">Live architecture</div>
       <div id="last-turn">No turn yet · send a message in the chat</div>
