@@ -71,6 +71,45 @@ def test_questions_get_no_closing_question(store, settings):
     assert choices(out, maya_orders, none_returned) == []
 
 
+def test_done_tap_says_goodbye_without_any_model(store, settings):
+    # a resolved order-status answer, then the "No, that's all" tap (R3.1)
+    events = []
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW,
+                        anthropic=FakeReplyModel(("reply", {"text": "It was delivered.", "needs_answer": False})),
+                        jev=fake_triage(answers(order=M)))
+    assert convo.send("where is The Midnight Library?", on_event=events.append)["ending"] is True
+
+    n = len(events)
+    out = convo.send("No, that's all", on_event=events.append, pick={"intent": "done"})
+    assert [e["step"] for e in events[n:]] == ["tap", "path", "reply", "tag"]  # no triage, no model
+    assert out == {"reply": "Thanks for chatting with Bookly. Have a lovely day!", "path": "goodbye",
+                   "tag": "resolved", "intent": "done", "ending": False}
+    assert convo.state["last_reply_kind"] is None
+    assert choices(out, store.orders("maya"), lambda item: False) == []
+
+
+def test_typed_decline_and_after_the_goodbye(store, settings):
+    # a typed "no thanks" after a closing question gets the goodbye (R3.2);
+    # the message after it is read as if no closing question was asked (R3.8)
+    events = []
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW,
+                        anthropic=FakeReplyModel(("reply", {"text": "It was delivered.", "needs_answer": False}),
+                                                 ("reply", {"text": "On its way.", "needs_answer": False})),
+                        jev=fake_triage(answers(order=M), answers(intent="other", declines=1.0),
+                                        answers(order="BL-10498")))
+    assert convo.send("where is The Midnight Library?", on_event=events.append)["ending"] is True
+
+    n = len(events)
+    out = convo.send("no thanks", on_event=events.append)
+    assert next(e for e in events[n:] if e["step"] == "triage")["result"]["declines"] is True
+    assert not [e for e in events[n:] if e["step"] == "model_call"]
+    assert out == {"reply": "Thanks for chatting with Bookly. Have a lovely day!", "path": "goodbye",
+                   "tag": "resolved", "intent": "other", "ending": False}
+
+    out = convo.send("and The Little Prince?", on_event=events.append)
+    assert out["path"] == "order_status" and out["reply"] == "On its way.\n" + CLOSING
+
+
 def test_model_closing_line_not_doubled(store, settings):
     convo, (first, second) = maya(store, settings, [
         ("where is The Midnight Library?", answers(order=M)),

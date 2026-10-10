@@ -24,6 +24,8 @@ def pick_path(t: dict, s: dict) -> dict:
         return go("wait", "already handed off")
     if t["person"] or t["angry"]:
         return go("handoff", "asks for a person" if t["person"] else "angry")
+    if last == "closing" and t["declines"] and t["intent"] not in WORK:
+        return go("goodbye", "declined after the closing question")
     if last == "scope":
         if t["accepts"]:
             return go("handoff", "accepted the offer to pass the question to the team")
@@ -53,7 +55,10 @@ def _orders_list(orders: list[dict]) -> str:
     )
 
 
-def fixed_text(path: str, shopper_orders: list[dict], now) -> str:
+def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False) -> str:
+    if path == "goodbye":
+        return ("Thanks for chatting with Bookly. The team still has your question and will reply here."
+                if handed_off else "Thanks for chatting with Bookly. Have a lovely day!")
     if path == "handoff":
         return f"I've passed this to a member of the Bookly team, who will take it from here. {wait_message(now)}"
     if path == "wait":

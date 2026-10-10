@@ -6,8 +6,8 @@ from tests.conftest import NOW
 M = "BL-10421"
 
 
-def t(intent="order status", person=False, angry=False, accepts=False, order=M, pick=None):
-    return {"intent": intent, "person": person, "angry": angry, "accepts": accepts,
+def t(intent="order status", person=False, angry=False, accepts=False, declines=False, order=M, pick=None):
+    return {"intent": intent, "person": person, "angry": angry, "accepts": accepts, "declines": declines,
             "effective_order": order, "order_pick": pick or order}
 
 
@@ -16,6 +16,11 @@ def t(intent="order status", person=False, angry=False, accepts=False, order=M, 
     [
         (t(person=True), {}, "handoff"),
         (t(intent="return", angry=True), {}, "handoff"),
+        (t(intent="other", person=True, declines=True), {"last_reply_kind": "closing"}, "handoff"),
+        (t(intent="other", declines=True), {"last_reply_kind": "closing"}, "goodbye"),
+        (t(declines=True), {"last_reply_kind": "closing"}, "order_status"),
+        (t(intent="other", declines=True), {"last_reply_kind": "clarify_intent"}, "scope"),
+        (t(intent="other"), {"last_reply_kind": "closing"}, "scope"),
         (t(intent="other", accepts=True), {"last_reply_kind": "scope"}, "handoff"),
         (t(intent="other"), {"last_reply_kind": "scope"}, "signoff"),
         (t(intent="other", accepts=True), {"last_reply_kind": "offer"}, "return"),

@@ -80,6 +80,14 @@ def test_ending_stream_holds_the_three_buttons(placed):
     ]
 
 
+def test_done_pick_accepted_by_chat(placed):
+    cid, convo, jev_calls = placed
+    body = server.ChatIn(shopper="maya", conversation_id=cid, text="No, that's all",
+                         pick={"intent": "done"})
+    events = _stream_events(server.chat(body))
+    assert events[-1]["step"] == "done" and events[-1]["path"] == "goodbye"
+
+
 def test_conversation_start_sends_order_dates_the_storefront_cards_read(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")  # Conversation builds an Anthropic client; no call is made
     before = set(server.conversations)

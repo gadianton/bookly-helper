@@ -85,12 +85,13 @@ class Conversation:
             if t["standby"]:
                 emit("standby", start, why=t["standby"], detail=t["standby_why"])
             emit("triage", start, model=t["model"], answers=t["raw"], model_ms=round(t["ms"], 1),
-                 result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts", "mood", "angry")})
+                 result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts",
+                                          "declines", "mood", "angry")})
         else:  # a tap settles what it names: no Jev, no standby, no words so no mood or person to read
             start = time.perf_counter()
             t = {"intent": pick["intent"], "order_pick": pick.get("order") or "can't tell",
                  "effective_order": pick.get("order") or "can't tell", "person": False, "accepts": False,
-                 "mood": "calm", "angry": False, "reason": s["kept_reason"] or "not said",
+                 "declines": False, "mood": "calm", "angry": False, "reason": s["kept_reason"] or "not said",
                  "raw": {"reason": {"pick": "not said"}}}
             emit("tap", start, intent=t["intent"], order=pick.get("order"), item=pick.get("item"))
         if t["effective_order"] in {o["id"] for o in self.orders}:
@@ -104,7 +105,10 @@ class Conversation:
             s["kept_reason"], s["reason_item"] = t["raw"]["reason"]["pick"], None
 
         start = time.perf_counter()
-        if pick is not None and not pick.get("order"):
+        if pick is not None and pick["intent"] == "done":
+            # "No, that's all": the tap settles the goodbye, at any point in the chat
+            p = {"path": "goodbye", "reason": "done tapped"}
+        elif pick is not None and not pick.get("order"):
             # a kind-of-help tap always asks which order or book, remembered order or not
             p = {"path": "clarify_book" if pick["intent"] == "return" else "clarify_order",
                  "reason": "kind of help tapped"}
@@ -114,7 +118,8 @@ class Conversation:
         if p["path"] == "handoff":
             return self._handoff(text, p["reason"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
-            return self._finish(text, fixed_text(p["path"], self.orders, self.now()), p["path"], emit, intent=t["intent"])
+            return self._finish(text, fixed_text(p["path"], self.orders, self.now(), s["handed_off"]),
+                                p["path"], emit, intent=t["intent"])
         return self._run_model(text, p["path"], t, emit)
 
     # ---- endings ----
@@ -130,6 +135,8 @@ class Conversation:
             if not (path in TOOLS_BY_PATH and "anything else" in reply.lower()):
                 reply += "\n" + CLOSING  # the reply model may already have asked: don't ask twice
             s["last_reply_kind"] = "closing"
+        elif path == "goodbye":
+            s["last_reply_kind"] = None  # the message after a goodbye is read as if no closing question was asked
         elif path in ("scope", "clarify_intent", "clarify_order", "clarify_book"):
             s["last_reply_kind"] = "clarify_order" if path == "clarify_book" else path
         self.history += [{"role": "customer", "text": text}, {"role": "agent", "text": reply}]

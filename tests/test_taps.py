@@ -23,6 +23,8 @@ def test_pick_naming_another_shoppers_order_or_wrong_item_refused(store):
     assert valid_pick({"intent": "return", "order": "BL-10498", "item": "BL-10498-1"}, maya)
     assert valid_pick({"intent": "return"}, maya)
     assert valid_pick({"intent": "order status", "order": "BL-10533"}, maya)
+    assert valid_pick({"intent": "done"}, maya)
+    assert not valid_pick({"intent": "done", "order": "BL-10498"}, maya)
 
 
 def test_status_buttons_in_transit_then_three_newest_delivered(store):

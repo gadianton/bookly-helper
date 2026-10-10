@@ -8,10 +8,13 @@ CLOSING_BUTTONS = HELP_BUTTONS + [{"label": "No, that's all", "pick": {"intent":
 
 
 def valid_pick(pick: dict, orders: list[dict]) -> bool:
-    """True only for the three pick shapes naming this shopper's own order and one of its items."""
+    """True only for the pick shapes a button sends: done, a kind of help,
+    a kind of help naming this shopper's own order, or a return naming one of its items."""
     if not isinstance(pick, dict):
         return False
     order = next((o for o in orders if o["id"] == pick.get("order")), None)
+    if pick.get("intent") == "done":
+        return set(pick) == {"intent"}
     if pick.get("intent") == "order status":
         if set(pick) == {"intent"}:
             return True
