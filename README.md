@@ -33,7 +33,7 @@ of the agent, with the step log under it:
 uv run python -m bookly.server
 ```
 
-Test set (31 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
+Test set (33 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
 
 ```
 uv run python -m bookly.evals
