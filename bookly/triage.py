@@ -135,7 +135,7 @@ def _haiku_tool(order_ids: list[str]) -> dict:
         elif isinstance(q, Noul):
             props[name] = {"type": "boolean", "description": q.instructions}
         else:
-            described = "; ".join(f"'{k}' = {v}" for k, v in q.criteria.items() if v)
+            described = "; ".join(f"'{k}' = {v}" for k, v in q.criteria.items() if v) if isinstance(q, Choice) else ""
             props[name] = {"type": "string", "enum": list(q.criteria),
                            "description": q.instructions + (f" {described}." if described else "")}
     return {"name": "triage", "description": "Record the triage of the customer's latest message.",
