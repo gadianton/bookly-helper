@@ -1,4 +1,4 @@
-"""Triage: one Jev request with seven questions per customer message, Haiku as the standby,
+"""Triage: one Jev request with eight questions per customer message, Haiku as the standby,
 and code that turns the answers into one triage result."""
 
 import json
@@ -42,6 +42,8 @@ def jev_questions(order_ids: list[str]) -> dict:
         "person": Noul(instructions="Does the customer ask to talk to a human, a person or a real agent?"),
         "accept": Noul(instructions="Does the customer's latest message accept the agent's last offer "
                        "(a refund or exchange it asked to go ahead with, or an offer to pass them to the team)?"),
+        "declines": Noul(instructions="Does the customer's latest message say they need nothing more, "
+                         "for example 'no thanks' or 'that's all'?"),
         "mood": Score(instructions="How upset is the customer in their latest message?", criteria=MOODS),
         "order": Choice(
             instructions="Which of the customer's orders is the latest message about? Match by order id or book title. "
@@ -146,7 +148,7 @@ def ask_haiku(message, history, orders, settings, client=None) -> tuple[dict, fl
     a = next(b for b in r.content if b.type == "tool_use").input
     a["clear"] = a.get(HAIKU_CLEAR, True)
     raw ={name: {"pick": a[name]} for name in ("intent", "order", "reason")}
-    raw |= {name: {"p": 1.0 if a[name] else 0.0} for name in ("clear", "person", "accept")}
+    raw |= {name: {"p": 1.0 if a[name] else 0.0} for name in ("clear", "person", "accept", "declines")}
     raw["mood"] = {"levels": {m: float(m == a["mood"]) for m in MOODS}}
     return raw, (time.perf_counter() - start) * 1000
 
@@ -170,6 +172,7 @@ def combine(raw, kept_order, kept_reason, order_ids, cutoffs) -> dict:
         "clear_p": raw["clear"]["p"],
         "person": raw["person"]["p"] >= cutoffs["person"],
         "accepts": raw["accept"]["p"] >= cutoffs["accept"],
+        "declines": raw["declines"]["p"] >= cutoffs["declines"],
         "mood": max(levels, key=levels.get),
         "angry": levels["angry"] >= cutoffs["angry"],
         "order_pick": order_pick,
