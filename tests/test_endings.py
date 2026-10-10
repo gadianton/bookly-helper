@@ -205,6 +205,14 @@ def test_return_after_handoff_does_not_reuse_the_handed_off_reason(store, settin
     assert convo.send("I'd also like to return The Little Prince")["path"] == "return"
     assert '"return_reason_from_conversation": "not said"' in model.requests[-1]["system"]
 
+    # an angry damage claim after the handoff gets the team-has-it line; its reason goes with it too
+    convo, _ = handed_off(store, settings, answers(intent="return", angry=1.0, reason="damaged"),
+                          answers(intent="return", order="BL-10498"),
+                          calls=[("reply", {"text": "Why are you returning it?", "needs_answer": True})])
+    assert convo.send("and another one arrived damaged, unbelievable")["path"] == "wait"
+    assert convo.send("I'd also like to return The Little Prince")["path"] == "return"
+    assert '"return_reason_from_conversation": "not said"' in convo.anthropic.requests[-1]["system"]
+
 
 def test_second_handoff_says_added_to_what_the_team_has(store, settings):
     none_returned = lambda item: False

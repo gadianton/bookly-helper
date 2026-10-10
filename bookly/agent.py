@@ -122,6 +122,8 @@ class Conversation:
         s = self.state
         start = time.perf_counter()
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
+        if path == "wait":
+            self._leave_with_team()
         # an ending: a handoff, the team-has-it line, the signoff, or a reply-model reply
         # that asks nothing and states no offer this turn (the stray-text reply included)
         ending = path in ("handoff", "wait", "signoff") or (
@@ -139,12 +141,15 @@ class Conversation:
         emit("tag", start, tag=s["tag"])
         return {"reply": reply, "path": path, "tag": s["tag"], "intent": intent, "ending": ending}
 
+    def _leave_with_team(self):
+        # the reason and tapped book stay with what the team has: a later return asks for its own
+        self.state["kept_reason"] = self.state["reason_item"] = self.state["book"] = None
+
     def _handoff(self, text, reason, emit, path="handoff", intent=None):
         start = time.perf_counter()
         already = self.state["handed_off"]
         self.state["handed_off"] = True
-        # the reason stays with the handed-off question: a later return asks for its own
-        self.state["kept_reason"] = self.state["reason_item"] = None
+        self._leave_with_team()
         self.handoff_record = {"reason": reason, "at": self.now().isoformat()}
         emit("handoff", start, reason=reason)
         # a handoff inside a later order or return turn adds to what the team already has
