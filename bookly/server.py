@@ -99,11 +99,15 @@ def chat(body: ChatIn):
 
 def free_port(start: int = 8000) -> socket.socket:
     """A socket bound to the first free port from start up, so servers from several task folders run side by side.
-    It stays bound and goes to uvicorn as is, so a second server starting at the same moment can't take that port too."""
+    It stays bound and listening and goes to uvicorn as is, so a second server starting at the same moment can't take
+    that port too. SO_REUSEADDR, as uvicorn sets it, lets a restart take back the port its last run's closed
+    connections still hold."""
     for port in range(start, start + 100):
         s = socket.socket()
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind(("127.0.0.1", port))
+            s.listen()  # with SO_REUSEADDR, Linux lets two sockets bind one port until one listens
             return s
         except OSError:
             s.close()

@@ -1,4 +1,5 @@
 import copy
+import socket
 import uuid
 from datetime import timedelta
 
@@ -63,6 +64,22 @@ def test_free_port_holds_its_port_so_the_next_server_takes_another():
             second.close()
     finally:
         first.close()
+
+
+def test_free_port_takes_back_a_port_its_last_run_closed_connections_on():
+    last_run = server.free_port(18100)
+    port = last_run.getsockname()[1]
+    client = socket.create_connection(("127.0.0.1", port))
+    conn, _ = last_run.accept()
+    conn.close()  # the server closes first, so its side of the connection waits in TIME_WAIT on the port
+    client.close()
+    last_run.close()
+
+    restart = server.free_port(port)
+    try:
+        assert restart.getsockname()[1] == port
+    finally:
+        restart.close()
 
 
 def test_conversation_start_sends_order_dates_the_storefront_cards_read(monkeypatch):
