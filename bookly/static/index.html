@@ -419,7 +419,10 @@ function describe(e) {
 function onEvent(e) {
   if (e.step === 'reply') add($('#msgs'), 'msg bot', e.text);
   if (e.step === 'choices') showChoices(e.choices);
-  if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+  if (e.step === 'error') {
+    add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+    $('#turn-failed').textContent = 'turn failed: ' + e.error;  // cleared by resetBoxes on the next turn
+  }
   routeBox(e);  // the diagram's lights
   const line = describe(e);
   if (line) add($('#panel'), `ev ev-${e.step}`, line);
