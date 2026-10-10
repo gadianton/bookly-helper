@@ -16,8 +16,8 @@
   #view-switch { display: flex; border: 1px solid var(--accent); border-radius: 8px; overflow: hidden; }
   #view-switch button { padding: 6px 12px; border: 0; background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
   #view-switch button[aria-pressed="true"] { background: var(--accent); color: var(--me-fg); }
-  main { display: flex; flex-direction: column; width: 100%; max-width: 1200px; margin: 0 auto; padding: 16px; flex: 1 1 auto; min-height: 0; overflow: auto; }
-  #store-view, #how-view { flex: 1 1 auto; min-height: 0; }
+  main { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); width: 100%; max-width: 1200px; margin: 0 auto; padding: 16px; flex: 1 1 auto; min-height: 0; overflow: auto; }
+  #store-view, #how-view { grid-area: 1 / 1; min-height: 0; }  /* one cell: the two views overlap while they cross-fade */
   #how-view { display: flex; flex-direction: column; gap: 10px; }
   #how-view[hidden] { display: none; }
   @media (min-width: 1000px) { #how-view { padding-right: 412px; } }
@@ -366,22 +366,30 @@ $('#view-switch').addEventListener('click', e => {
   const btn = e.target.closest('button');
   if (!btn) return;
   for (const b of $('#view-switch').children) b.setAttribute('aria-pressed', String(b === btn));
-  const shown = btn.dataset.view === 'how' ? $('#how-view') : $('#store-view');
-  const fade = shown.hidden;  // the incoming view fades in on the approved curve; the outgoing hides at once
-  $('#store-view').hidden = btn.dataset.view === 'how';
-  $('#how-view').hidden = btn.dataset.view !== 'how';
-  if (fade) {
+  const how = btn.dataset.view === 'how';
+  const shown = how ? $('#how-view') : $('#store-view'), gone = how ? $('#store-view') : $('#how-view');
+  clearTimeout(fadeDone);  // a switch back mid-fade turns both fades around from where they are
+  if (shown.hidden) {
     shown.dataset.fade = '';
+    shown.hidden = false;
     void shown.offsetHeight;  // render the transparent start, then let the transition fade the view in
-    delete shown.dataset.fade;
   }
+  delete shown.dataset.fade;
+  if (gone.hidden) return;
+  const hide = () => { gone.hidden = true; delete gone.dataset.fade; };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return hide();
+  gone.dataset.fade = '';  // the outgoing view fades out over the incoming one, then leaves the layout
+  fadeDone = setTimeout(hide, 200);
 });
+let fadeDone;
 let switches = 0;  // a message queued before a shopper switch is dropped, not sent as the new shopper
 // a new shopper's turns don't wait for the old one's: it is another conversation and its stream is dropped
 $('#shopper').onchange = () => {
   switches++;
   sending = Promise.resolve();
   for (const s of ['#msgs', '#panel', '#orders']) $(s).textContent = '';  // nothing of the old shopper while the new one loads
+  resetBoxes();
+  clearFailure();
   ready = startConversation();
 };
 let sending = Promise.resolve();  // one turn at a time: two at once would share one conversation's state
