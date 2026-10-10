@@ -73,5 +73,12 @@ def test_buttons_only_on_the_fixed_questions(store):
         {"label": "Where's my order", "pick": {"intent": "order status"}},
         {"label": "Return a book", "pick": {"intent": "return"}},
     ]
-    for out in ({"path": "order_status", "intent": "order status"}, {"path": "handoff"}, {"path": "scope"}):
-        assert choices(out, maya, none_returned) == []
+    three = [
+        {"label": "Where's my order", "pick": {"intent": "order status"}},
+        {"label": "Return a book", "pick": {"intent": "return"}},
+        {"label": "No, that's all", "pick": {"intent": "done"}},
+    ]
+    for out in ({"path": "handoff", "ending": True},
+                {"path": "order_status", "intent": "order status", "ending": True}):
+        assert choices(out, maya, none_returned) == three  # every ending gets the three buttons
+    assert choices({"path": "scope"}, maya, none_returned) == []

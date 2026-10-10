@@ -1,4 +1,6 @@
+import asyncio
 import copy
+import json
 import uuid
 from datetime import timedelta
 
@@ -8,7 +10,7 @@ from fastapi import HTTPException
 import bookly.server as server
 from bookly.agent import Conversation
 from bookly.returns import Ledger
-from tests.conftest import FakeReplyModel, answers
+from tests.conftest import FakeReplyModel, answers, fake_triage
 
 
 @pytest.fixture
@@ -51,6 +53,31 @@ def test_malformed_pick_or_unknown_shopper_gets_400(shopper, pick, detail):
     with pytest.raises(HTTPException) as e:
         server.chat(server.ChatIn(shopper=shopper, text="Return a book", pick=pick))
     assert (e.value.status_code, e.value.detail) == (400, detail)
+
+
+def _stream_events(response) -> list[dict]:
+    async def drain():
+        events = []
+        async for chunk in response.body_iterator:
+            events += [json.loads(line[6:]) for line in chunk.splitlines() if line.startswith("data: ")]
+        return events
+    return asyncio.run(drain())
+
+
+def test_ending_stream_holds_the_three_buttons(placed):
+    cid, convo, jev_calls = placed
+    convo.jev = fake_triage(answers(intent="unclear"))  # twice unclear: the second miss hands off
+    events = []
+    for _ in range(2):
+        body = server.ChatIn(shopper="maya", conversation_id=cid, text="hello?")
+        events = _stream_events(server.chat(body))
+    assert [e["step"] for e in events if e["step"] == "choices"][-1:] == ["choices"]
+    assert events[-1]["step"] == "done" and events[-1]["path"] == "handoff"
+    assert next(e for e in events if e["step"] == "choices")["choices"] == [
+        {"label": "Where's my order", "pick": {"intent": "order status"}},
+        {"label": "Return a book", "pick": {"intent": "return"}},
+        {"label": "No, that's all", "pick": {"intent": "done"}},
+    ]
 
 
 def test_conversation_start_sends_order_dates_the_storefront_cards_read(monkeypatch):

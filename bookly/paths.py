@@ -6,6 +6,7 @@ from bookly.hours import wait_message
 
 WORK = {"order status": "order_status", "return": "return"}
 NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
+CLOSING = "Is there anything else I can help with?"
 
 
 def new_state() -> dict:
@@ -61,7 +62,8 @@ def fixed_text(path: str, shopper_orders: list[dict], now) -> str:
         return ("I can help with order status and returns. "
                 "Would you like me to pass your question to a member of our team?")
     if path == "signoff":
-        return "No problem. If you need anything else, our team is here Monday to Friday, 9am to 6pm ET."
+        return ("No problem. Our team is here Monday to Friday, 9am to 6pm ET, "
+                "if you'd like to ask them later.")
     if path == "clarify_intent":
         return "Happy to help. Do you need the status of an order, or help with a return?"
     if path == "clarify_order":

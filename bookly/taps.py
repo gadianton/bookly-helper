@@ -4,6 +4,7 @@ HELP_BUTTONS = [
     {"label": "Where's my order", "pick": {"intent": "order status"}},
     {"label": "Return a book", "pick": {"intent": "return"}},
 ]
+CLOSING_BUTTONS = HELP_BUTTONS + [{"label": "No, that's all", "pick": {"intent": "done"}}]
 
 
 def valid_pick(pick: dict, orders: list[dict]) -> bool:
@@ -26,6 +27,8 @@ def valid_pick(pick: dict, orders: list[dict]) -> bool:
 def choices(out: dict, orders: list[dict], returned) -> list[dict]:
     """The buttons for the turn's reply, empty for anything that is not a button-followed question."""
     path, intent = out.get("path"), out.get("intent")
+    if out.get("ending"):  # every ending offers the two things the agent does and a way to say no
+        return [{"label": b["label"], "pick": dict(b["pick"])} for b in CLOSING_BUTTONS]
     if path == "clarify_intent":
         return [{"label": b["label"], "pick": dict(b["pick"])} for b in HELP_BUTTONS]
     orders = sorted(orders, key=lambda o: o["order_date"], reverse=True)  # newest first, whatever the caller kept

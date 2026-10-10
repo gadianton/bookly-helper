@@ -8,7 +8,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from bookly.hours import ET
-from bookly.paths import fixed_text, new_state, pick_path, tag_for
+from bookly.paths import CLOSING, fixed_text, new_state, pick_path, tag_for
 from bookly.triage import anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
@@ -122,13 +122,20 @@ class Conversation:
         s = self.state
         start = time.perf_counter()
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
-        if path in ("scope", "signoff", "clarify_intent", "clarify_order", "clarify_book"):
-            s["last_reply_kind"] = "clarify_order" if path == "clarify_book" else (
-                path if path in ("scope", "clarify_intent", "clarify_order") else None)
+        # an ending: a handoff, the team-has-it line, the signoff, or a reply-model reply
+        # that asks nothing and states no offer this turn (the stray-text reply included)
+        ending = path in ("handoff", "wait", "signoff") or (
+            path in TOOLS_BY_PATH and not needs_answer and not offer_pending)
+        if ending:
+            if not (path in TOOLS_BY_PATH and "anything else" in reply.lower()):
+                reply += "\n" + CLOSING  # the reply model may already have asked: don't ask twice
+            s["last_reply_kind"] = "closing"
+        elif path in ("scope", "clarify_intent", "clarify_order", "clarify_book"):
+            s["last_reply_kind"] = "clarify_order" if path == "clarify_book" else path
         self.history += [{"role": "customer", "text": text}, {"role": "agent", "text": reply}]
         emit("reply", start, text=reply)
         emit("tag", start, tag=s["tag"])
-        return {"reply": reply, "path": path, "tag": s["tag"], "intent": intent}
+        return {"reply": reply, "path": path, "tag": s["tag"], "intent": intent, "ending": ending}
 
     def _handoff(self, text, reason, emit, path="handoff", intent=None):
         start = time.perf_counter()
