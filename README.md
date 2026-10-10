@@ -26,7 +26,8 @@ Plain chat in the terminal (type messages, `quit` to end). Each reply is followe
 uv run python -m bookly.chat --shopper maya
 ```
 
-Storefront with the pop-up chat and the behind-the-scenes panel, at http://127.0.0.1:8000:
+Storefront with the pop-up chat, at http://127.0.0.1:8000; the header's "How it works" switch shows the live diagram
+of the agent, with the step log under it:
 
 ```
 uv run python -m bookly.server
@@ -54,7 +55,8 @@ damaged-item claims, so a third goes to a person for review).
 
 `bookly/settings.toml`:
 - `triage_model = "jev"` or `"haiku"`. With `"jev"`, Haiku stands in automatically when Jev is slow (over
-  `jev_time_limit_s = 1.5` seconds), has no key, or returns an error. The panel shows which model answered and why.
+  `jev_time_limit_s = 1.5` seconds), has no key, or returns an error. The diagram's Jev and Haiku stand-in boxes show
+  which model answered and why.
   `uv run python -m bookly.server --triage-model haiku` overrides it for one run.
 - `[cutoffs]`: how confident Jev must be before an answer counts. Tuned on the test set: `clear = 0.4`, everything
   else (`intent`, `order`, `person`, `accept`, `angry`) `0.5`.
