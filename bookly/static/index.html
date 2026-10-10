@@ -9,7 +9,7 @@
      architecture view's diagram keeps its colours at merge */
   :root { --bg: #FFFFFF; --fg: #12141A; --muted: #5B6170; --card: #FFFFFF; --line: #ECEEF3; --accent: #2344C9; --bot: #FFFFFF; --me: #2344C9; --me-fg: #FFFFFF;
           --ink: #12141A; --surface: #F3F4F7; --surface-2: #F8F9FB; --accent-tint: #EEF2FF; --online: #3FD18A;
-          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; }
+          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; --ease: cubic-bezier(0.23, 1, 0.32, 1); }
   @font-face { font-family: 'Manrope'; src: url('/static/fonts/manrope.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Bricolage Grotesque'; src: url('/static/fonts/bricolage-grotesque.woff2') format('woff2'); font-weight: 600 700; font-style: normal; font-display: swap; }
   * { box-sizing: border-box; }
@@ -27,20 +27,30 @@
   h1 { margin: 0; font: 700 26px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.03em; }
   .search { flex: 1 1 280px; display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 44px; border-radius: 999px; background: var(--surface); color: var(--muted); }
   .search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--fg); outline: none; }
-  .header-actions { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+  .header-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14px; }  /* wraps: the view switch makes the row too wide for a phone */
   .account { display: flex; gap: 6px; align-items: center; color: var(--muted); }
   #shopper { font: inherit; font-weight: 600; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; color: var(--fg); }
-  .switch { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 10px; cursor: pointer; color: var(--muted); }
-  .switch input { width: 16px; height: 16px; accent-color: var(--accent); }
+  /* the view switch: Storefront | How it works, in the header's colours */
+  .switch { display: flex; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+  .switch button { border: 0; padding: 8px 12px; font-weight: 600; background: transparent; color: var(--muted); }
+  .switch button[aria-pressed="true"] { background: var(--accent); color: #fff; }
   .bag { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line-strong); background: #fff; color: var(--fg); display: grid; place-items: center; }
 
   /* Category chips */
   .chips { max-width: 1220px; margin: 0 auto; padding: 0 24px 12px; display: flex; gap: 8px; flex-wrap: wrap; }
   .chip { padding: 8px 14px; border-radius: 999px; border: 0; background: var(--surface); color: var(--fg); font-size: 14px; }
   .chip.active { background: var(--ink); color: #fff; font-weight: 600; }
-  main { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 28px 24px 120px; max-width: 1220px; margin: 0 auto; }
-  main:has(#panel.on) { grid-template-columns: 1fr minmax(0, 420px); }  /* the Agent panel: a right-hand column beside the store content */
-  @media (max-width: 800px) { main, main:has(#panel.on) { grid-template-columns: 1fr; } }
+  /* the diagram view drops the shop-only strip and chips, so the header stays short
+     and the drawing keeps its scale under the header (spec R3) */
+  body:has(#arch-view:not(.hidden)) :is(.top-strip, .chips) { display: none; }
+
+  main { display: grid; }
+  /* overflow: the hidden storefront's shelves still paint during the fade but must not make the diagram view scroll */
+  main:has(#arch-view:not(.hidden)) { background: #FFFFFF; min-height: calc(100vh - var(--header-h, 0px)); overflow: hidden; }
+  #store-view, #arch-view { grid-area: 1 / 1; transition: opacity 200ms var(--ease), visibility 0s 0ms; }
+  #store-view { width: 100%; max-width: 1220px; margin: 0 auto; padding: 28px 24px 120px; }
+  /* the hidden view takes no height, so the shown one alone sets the page's length; its content still paints during the fade */
+  #store-view.hidden, #arch-view.hidden { max-height: 0; opacity: 0; visibility: hidden; transition: opacity 200ms var(--ease), visibility 0s 200ms; }
   #storefront { display: flex; flex-direction: column; gap: 36px; }
 
   /* Orders area */
@@ -80,11 +90,58 @@
   .add { font-weight: 600; font-size: 14px; padding: 8px 14px; min-height: 36px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; }
   #orders li { margin: 4px 0; }
   #orders small { color: var(--muted); }
-  #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
-  #panel.on { display: block; }
+  /* the diagram view: Look B, fixed light colours in both colour settings */
+  #arch-view { --ink: #12141A; --muted: #5B6170; --page: #FFFFFF; --surface: #F3F4F7; --line: #ECEEF3; --line-strong: #DDE0E7; --accent: #2344C9; --accent-tint: #EEF2FF; --fail: #C13A2B; background: var(--page); color: var(--ink); font: 13px/18px "Manrope", system-ui, sans-serif; }
+  #arch { position: relative; width: 1056px; height: 760px; transform-origin: top left; }
+  .arch-title { position: absolute; left: 64px; top: 36px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
+  #last-turn { position: absolute; left: 64px; top: 70px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #turn-failed { position: absolute; left: 64px; top: 94px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #tools-label { position: absolute; left: 848px; top: 116px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
+  .box { position: absolute; width: 148px; padding: 10px 12px; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+  .box-title { font-weight: 700; }
+  /* a box holds whole rows and clips the rest: 4 rows of 18 px in the 104/96 px boxes
+     (3 under the title), 3 in the 88 px boxes (2 under the title); the clamp draws the
+     ellipsis on the last row shown, and the full line stays in the element */
+  .box-lines { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--rows, 3); max-height: calc(var(--rows, 3) * 18px); }
+  .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --rows: 2; }
+  .box[data-look="lit"] { background: #FFFFFF; border: 2px solid var(--ink); box-shadow: 0 0 0 4px var(--accent-tint); color: var(--ink); }
+  .box[data-look="skipped"] { background: #FFFFFF; border: 2px dashed var(--muted); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
+  .box[data-look="idle"] { background: var(--surface); border: 2px dashed var(--line-strong); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
+  /* columns (spec R10): Storefront 0, Jev and stand-in 1, rules 2, fixed/model/handoff 3, data 4;
+     an arrow carries the column of the box it points into */
+  .box[data-box="storefront"] { --col: 0; }
+  .box[data-box="jev"], .box[data-box="standin"] { --col: 1; }
+  .box[data-box="rules"] { --col: 2; }
+  .box[data-box="fixed"], .box[data-box="model"], .box[data-box="handoff"] { --col: 3; }
+  .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --col: 4; }
+  [data-arrow="storefront-jev"], [data-arrow="jev-standin"] { --col: 1; }
+  [data-arrow="jev-rules"] { --col: 2; }
+  [data-arrow="rules-model"], [data-arrow="rules-fixed"], [data-arrow="rules-handoff"] { --col: 3; }
+  [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"],
+  [data-arrow="to-orders"], [data-arrow="to-policy"], [data-arrow="to-returns"] { --col: 4; }
+  [data-arrow] { position: absolute; overflow: visible; }
+  [data-arrow] .line { fill: none; stroke: var(--line-strong); stroke-width: 2; stroke-linecap: round; }
+  [data-arrow] .head { stroke: none; fill: var(--line-strong); }
+  [data-arrow].ink .line { stroke: var(--ink); }
+  [data-arrow].ink .head { fill: var(--ink); }
+  [data-arrow="jev-standin"] .line { stroke-dasharray: 6 6; }
+  /* motion (spec R10): only colours and opacity animate — never the transform or a
+     size; lit and skipped fade in 200 ms after 100 ms + 40 ms per column, dimming
+     back to idle is 100 ms with no delay */
+  .box { transition: background-color 100ms var(--ease), border-color 100ms var(--ease),
+                   color 100ms var(--ease), box-shadow 100ms var(--ease); }
+  .box[data-look="lit"], .box[data-look="skipped"] { transition-duration: 200ms;
+                                                     transition-delay: calc(100ms + 40ms * var(--col)); }
+  [data-arrow] .line, [data-arrow] .head { transition: stroke 100ms var(--ease), fill 100ms var(--ease); }
+  [data-arrow].ink .line, [data-arrow].ink .head { transition-duration: 200ms;
+                                                   transition-delay: calc(100ms + 40ms * var(--col)); }
+  .standin-label { position: absolute; left: 346px; top: 404px; width: 96px; font-size: 12px; line-height: 16px; color: var(--muted); }
+  #panel { position: absolute; left: 64px; top: 588px; width: 932px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  #panel .ev { white-space: pre-wrap; }
+  #panel .ev:last-child { border-bottom: 0; }
   .ev-triage, .ev-standby, .ev-tap { color: var(--accent); }
-  .ev-turn { font-weight: 600; margin-top: 8px; }
+  .ev-turn { font-weight: 700; }
   /* Chat */
   #bubble { position: fixed; z-index: 10; right: 24px; bottom: 24px; height: 56px; padding: 0 20px 0 16px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 10px 24px rgba(35,68,201,.35); }
   #chat { position: fixed; z-index: 10; right: 24px; bottom: 96px; width: 380px; max-width: calc(100vw - 48px); height: 540px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; background: #fff; border: 1px solid #E4E7EE; border-radius: 20px; box-shadow: 0 24px 60px rgba(18,20,26,.20); overflow: hidden;
@@ -154,7 +211,10 @@
       <label class="account">Account
         <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
       </label>
-      <label class="switch"><input type="checkbox" id="panel-toggle"> Agent panel</label>
+      <div class="switch" role="group" aria-label="View">
+        <button type="button" id="view-store" aria-pressed="true">Storefront</button>
+        <button type="button" id="view-arch" aria-pressed="false">How it works</button>
+      </div>
       <button type="button" class="bag" aria-label="Bag, 0 items">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>
       </button>
@@ -169,14 +229,80 @@
   </nav>
 </header>
 <main>
-  <div id="storefront">
-    <section class="orders" aria-label="Your orders">
-      <div class="order-card"></div>
-      <div class="orders-summary"></div>
-    </section>
-    <div class="orders-list"><ul id="orders"></ul></div>
+  <div id="store-view">
+    <div id="storefront">
+      <section class="orders" aria-label="Your orders">
+        <div class="order-card"></div>
+        <div class="orders-summary"></div>
+      </section>
+      <div class="orders-list"><ul id="orders"></ul></div>
+    </div>
   </div>
-  <aside id="panel" aria-label="Agent panel"></aside>
+  <div id="arch-view" class="hidden">
+    <div id="arch">
+      <div class="arch-title">Live architecture</div>
+      <div id="last-turn">No turn yet · send a message in the chat</div>
+      <div id="turn-failed"></div>
+      <div id="tools-label">TOOLS</div>
+
+      <svg data-arrow="storefront-jev" data-to="jev" style="left:212px;top:316px" width="47" height="8" viewBox="0 0 47 8"><path class="line" d="M0 4 H39"/><path class="head" d="M39 0 L47 4 L39 8 Z"/></svg>
+      <svg data-arrow="jev-rules" data-to="rules" style="left:408px;top:316px" width="47" height="8" viewBox="0 0 47 8"><path class="line" d="M0 4 H39"/><path class="head" d="M39 0 L47 4 L39 8 Z"/></svg>
+      <svg data-arrow="rules-model" data-to="model" style="left:604px;top:316px" width="47" height="8" viewBox="0 0 47 8"><path class="line" d="M0 4 H39"/><path class="head" d="M39 0 L47 4 L39 8 Z"/></svg>
+      <svg data-arrow="rules-fixed" data-to="fixed" style="left:528px;top:164px" width="124" height="104" viewBox="0 0 124 104"><path class="line" d="M4 4 V104"/><path class="line" d="M4 4 H112"/><path class="head" d="M112 0 L120 4 L112 8 Z"/></svg>
+      <svg data-arrow="rules-handoff" data-to="handoff" style="left:528px;top:372px" width="124" height="128" viewBox="0 0 124 128"><path class="line" d="M4 0 V124"/><path class="line" d="M4 124 H112"/><path class="head" d="M112 120 L120 124 L112 128 Z"/></svg>
+      <svg data-arrow="jev-standin" data-to="standin" style="left:330px;top:372px" width="8" height="80" viewBox="0 0 8 80"><path class="line" d="M4 0 V80"/></svg>
+      <div class="standin-label">if Jev is slow</div>
+      <svg data-arrow="tools-stub" data-to="" style="left:800px;top:316px" width="24" height="8" viewBox="0 0 24 8"><path class="line" d="M0 4 H24"/></svg>
+      <svg data-arrow="tools-upper" data-to="orders" style="left:820px;top:192px" width="8" height="128" viewBox="0 0 8 128"><path class="line" d="M4 0 V128"/></svg>
+      <svg data-arrow="tools-lower" data-to="returns" style="left:820px;top:320px" width="8" height="128" viewBox="0 0 8 128"><path class="line" d="M4 0 V128"/></svg>
+      <svg data-arrow="to-orders" data-to="orders" style="left:824px;top:188px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-policy" data-to="policy" style="left:824px;top:316px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-returns" data-to="returns" style="left:824px;top:444px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+
+      <div class="box" data-box="storefront" data-look="idle" style="left:64px;top:268px;height:104px">
+        <div class="box-title">Storefront</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="jev" data-look="idle" style="left:260px;top:268px;height:104px">
+        <div class="box-title">Jev triage</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="standin" data-look="idle" style="left:260px;top:452px;height:88px">
+        <div class="box-title">Haiku stand-in</div>
+        <div class="box-lines">not needed</div>
+      </div>
+      <div class="box" data-box="rules" data-look="idle" style="left:456px;top:268px;height:104px">
+        <div class="box-title">Path rules · code</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="fixed" data-look="idle" style="left:652px;top:120px;height:96px">
+        <div class="box-title">Fixed replies</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="model" data-look="idle" style="left:652px;top:268px;height:104px">
+        <div class="box-title">Reply model</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="handoff" data-look="idle" style="left:652px;top:452px;height:88px">
+        <div class="box-title">Handoff</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="orders" data-look="idle" style="left:848px;top:148px;height:88px">
+        <div class="box-title">Orders</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="policy" data-look="idle" style="left:848px;top:276px;height:88px">
+        <div class="box-title">Return policy</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="returns" data-look="idle" style="left:848px;top:404px;height:88px">
+        <div class="box-title">Returns</div>
+        <div class="box-lines">idle</div>
+      </div>
+
+      <aside id="panel" aria-label="Step log"></aside>
+    </div>
+  </div>
 </main>
 
 <button id="bubble" aria-label="Open chat">
@@ -363,7 +489,153 @@ function tap(b) {  // a tap is a turn like a typed message, but it settles what 
     .catch(() => at === switches && onEvent({step: 'error', error: 'the chat request failed'}));
 }
 
+// ---- the diagram's lights -----------------------------------------------------
+
+for (const b of document.querySelectorAll('.box')) b.dataset.title = b.querySelector('.box-title').textContent;
+let turnEvents = {};  // what the current turn has seen (a standby before its triage)
+
+function fmtTime(ms) { ms = Number(ms); return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`; }
+
+function setBox(name, look, lines, title) {
+  const b = document.querySelector(`.box[data-box=${name}]`);
+  if (!b) return;
+  b.dataset.look = look;
+  if (title) b.querySelector('.box-title').textContent = title;
+  const el = b.querySelector('.box-lines');
+  el.textContent = '';
+  lines.forEach((l, i) => { if (i) el.appendChild(document.createElement('br')); el.append(l); });
+  paintArrows();
+}
+
+function paintArrows() {  // an arrow is ink while the box it points to is lit, except the two out of Path rules:
+  for (const a of document.querySelectorAll('[data-arrow]')) {  // they follow the route path rules picked
+    let ink;
+    if (a.dataset.arrow === 'tools-stub') ink = ['orders', 'policy', 'returns'].some(n => document.querySelector(`.box[data-box=${n}]`).dataset.look === 'lit');
+    else if (a.dataset.arrow === 'rules-fixed') ink = FIXED_PATHS.includes(turnEvents.path);
+    else if (a.dataset.arrow === 'rules-handoff') ink = turnEvents.path === 'handoff';
+    else ink = !!a.dataset.to && document.querySelector(`.box[data-box=${a.dataset.to}]`).dataset.look === 'lit';
+    a.classList.toggle('ink', ink);
+  }
+}
+
+function resetBoxes() {
+  turnEvents = {};  // the old turn's route must not keep the arrows out of Path rules ink
+  for (const b of document.querySelectorAll('.box')) {
+    b.dataset.look = 'idle';
+    b.querySelector('.box-title').textContent = b.dataset.title;
+    b.querySelector('.box-lines').textContent = b.dataset.box === 'standin' ? 'not needed' : 'idle';
+  }
+  paintArrows();
+  $('#last-turn').textContent = 'No turn yet · send a message in the chat';
+  $('#turn-failed').textContent = '';
+}
+
+function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn starts when its message is sent
+  resetBoxes();
+  if (msg.tap) {
+    setBox('storefront', 'lit', [`tapped “${msg.tap}”`]);
+    $('#last-turn').textContent = `Last turn: tapped “${msg.tap}” · lit until the next message`;
+  } else {
+    setBox('storefront', 'lit', [`typed: “${msg}”`]);
+    const cut = msg.length > 60 ? msg.slice(0, 60) + '…' : msg;
+    $('#last-turn').textContent = `Last turn: “${cut}” · lit until the next message`;
+  }
+}
+
+const FIXED_PATHS = ['scope', 'signoff', 'clarify_intent', 'clarify_order', 'clarify_book', 'wait', 'handoff'];
+const REASONS = {  // the spec's reason table; the "answer to model" row carries its intent inside the reason
+  'already handed off': 'already with a person',
+  'accepted the offer to pass the question to the team': 'took the team offer',
+  'accepted the refund or exchange offer': 'accepted the offer',
+  'still unclear after the clarifying question': 'still unclear',
+  'no order picked after the order question': 'no order picked',
+  'angry': 'upset',
+};
+
+function shortReason(text) {
+  text = text.replace(/^reply model: /, 'model: ').replace(/^return policy: /, 'policy: ');
+  const model = text.match(/^answer to the reply model's question \((.*)\)$/);
+  return model ? `answer to model (${model[1]})` : REASONS[text] || text;
+}
+
+function fixedLine(text) {  // Fixed replies holds each of its lines at most once a turn
+  turnEvents.fixed = turnEvents.fixed || [];
+  if (!turnEvents.fixed.includes(text)) turnEvents.fixed.push(text);
+  setBox('fixed', 'lit', turnEvents.fixed);
+}
+
+function modelLines() {  // "Haiku · <time> · <n> call(s)" from the turn's model_call events, plus "read profile"
+  const n = turnEvents.model_calls;
+  return [`Haiku · ${fmtTime(turnEvents.model_ms)} · ${n === 1 ? '1 call' : `${n} calls`}`,
+          ...(turnEvents.profile ? ['read profile'] : [])];
+}
+
+function toolLine(e) {  // the spec's line form per tool and result; a part the input lacks is left out
+  const inp = e.input || {};
+  const r = typeof e.result === 'string' ? {result: e.result} : (e.result || {});
+  const id = s => s ? ` ${s}` : '';
+  switch (e.name) {
+    case 'lookup_order': return `lookup_order${id(inp.order_id)} → ${r.status || r.result || 'not found'}`;
+    case 'return_quote': return `quote${id(inp.item_id)} → ${r.result === 'quote'
+      ? (r.destination === 'store credit' ? `$${r.refund} credit` : `$${r.refund} to card`)
+      : r.result}`;
+    case 'return_action': return `return → ${r.result === 'done' ? `done ${r.confirmation}`
+      : r.result === 'refused' ? `refused: ${r.why}` : r.result}`;
+  }
+  return `${e.name} → ${r.result ?? JSON.stringify(e.result)}`;  // any other tool
+}
+
+function routeBox(e) {  // the events that light boxes; reply, tag and the rest stay step-log only
+  if (e.step === 'standby') {
+    turnEvents.standby = true;
+    setBox('jev', 'skipped', [`skipped: ${e.why} (${e.detail})`]);
+  } else if (e.step === 'tap') {
+    turnEvents.tap = true;
+    setBox('jev', 'skipped', ['skipped: tap']);
+  } else if (e.step === 'triage') {
+    turnEvents.triage = true;
+    const r = e.result, a = e.answers || {};
+    const order = r.effective_order && r.effective_order !== "can't tell" ? r.effective_order : 'no order';
+    const when = `${order} · ${fmtTime(e.model_ms)}`;
+    if (e.model === 'jev') {
+      const conf = a.intent && a.intent.confidence != null ? ` · ${Number(a.intent.confidence).toFixed(2)}` : '';
+      const mood = [r.person && 'person', r.angry && 'upset'].filter(Boolean).join(' · ');
+      setBox('jev', 'lit', [r.intent + conf, when, ...(mood ? [mood] : [])]);
+    } else {
+      if (!turnEvents.standby) setBox('jev', 'skipped', ['off: Haiku is triage']);
+      setBox('standin', 'lit', [r.intent, when]);
+    }
+  } else if (e.step === 'path') {
+    turnEvents.path = e.path;
+    setBox('rules', 'lit', [`${e.path}: ${shortReason(e.reason)}`]);
+    if (FIXED_PATHS.includes(e.path)) fixedLine(`${e.path} text`);
+    if (e.path === 'wait' && !turnEvents.triage && !turnEvents.tap)
+      setBox('jev', 'skipped', ['skipped: with a person']);  // the turn went to no triage and no tap
+  } else if (e.step === 'handoff') {
+    setBox('handoff', 'lit', [shortReason(e.reason)]);
+    fixedLine('handoff text');  // the handoff message is fixed text
+  } else if (e.step === 'model_call') {
+    turnEvents.model_ms = (turnEvents.model_ms || 0) + Number(e.ms);
+    turnEvents.model_calls = (turnEvents.model_calls || 0) + 1;
+    setBox('model', 'lit', modelLines());
+  } else if (e.step === 'profile') {
+    turnEvents.profile = true;  // the profile's counts stay in the step log
+    if (turnEvents.model_calls) setBox('model', 'lit', modelLines());
+  } else if (e.step === 'tool_call') {
+    // a handoff tool_call adds nothing (the handoff event after it lights Handoff); a call with
+    // no source lights nothing and stays in the step log; the source picks the data box
+    const dataBox = {orders: 'orders', 'return policy': 'policy', returns: 'returns'}[e.source];
+    if (dataBox && e.name !== 'handoff') {
+      turnEvents.calls = turnEvents.calls || {};
+      const n = turnEvents.calls[dataBox] = (turnEvents.calls[dataBox] || 0) + 1;
+      const base = document.querySelector(`.box[data-box=${dataBox}]`).dataset.title;
+      setBox(dataBox, 'lit', [toolLine(e)], n > 1 && `${base} ×${n}`);  // the latest call's line, the count in the title
+    }
+  }
+}
+
 async function startConversation() {
+  resetBoxes();  // loading a conversation puts every box back to idle (page load, shopper switch, retry load)
   const shopper = $('#shopper').value, at = switches;
   const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
   const c = await r.json();
@@ -407,6 +679,7 @@ function describe(e) {
     case 'model_call': return `reply model call: ${ms}`;
     case 'tool_call': return `tool ${e.name} [${e.source}] ${JSON.stringify(e.input)} -> ${JSON.stringify(e.result)} ${ms}`;
     case 'handoff': return `handoff: ${e.reason}`;
+    case 'reply': return `reply: ${e.text}`;
     case 'tag': return `tag: ${e.tag}`;
     case 'error': return `error: ${e.error}`;
     default: return null;
@@ -447,7 +720,11 @@ function onEvent(e) {
     bubble.appendChild(replyCard(turnOrders.orders.values().next().value));
   }
   if (e.step === 'choices') showChoices(e.choices);
-  if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+  if (e.step === 'error') {
+    add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+    $('#turn-failed').textContent = 'turn failed: ' + e.error;  // cleared by resetBoxes on the next turn
+  }
+  routeBox(e);  // the diagram's lights
   const line = describe(e);
   if (line) add($('#panel'), `ev ev-${e.step}`, line);
 }
@@ -456,6 +733,7 @@ async function send(text, at, n, pick) {
   await ready.catch(() => (ready = startConversation()));  // the conversation failed to load: try again
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
+  startTurn(pick ? {tap: text} : text);  // the turn starts when its message is sent, not when it was queued
   add($('#msgs'), 'msg me', text);
   turnOrders = null;  // a fresh turn: nothing of the last one may bleed into it
   add($('#panel'), 'ev ev-turn', `> ${text}`);
@@ -481,11 +759,31 @@ async function send(text, at, n, pick) {
 }
 
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
-$('#panel-toggle').onchange = e => $('#panel').classList.toggle('on', e.target.checked);
+function fit() {  // scale the fixed 1056x760 drawing to the window, keeping the 412 px chat strip clear
+  const w = innerWidth, hh = $('main').offsetTop;  // everything above the views: the header and any strip over it
+  document.documentElement.style.setProperty('--header-h', hh + 'px');  // the white view fills below the header
+  const s = w >= 1000 ? Math.min(1, (w - 412) / 1056, (innerHeight - hh) / 760)
+                      : Math.min(1, w / 1056);
+  $('#arch').style.transform = `scale(${s})`;
+  $('#arch-view').style.width = 1056 * s + 'px';  // the view's box is the scaled drawing, so the page doesn't scroll
+  $('#arch-view').style.height = 760 * s + 'px';
+}
+addEventListener('resize', fit);
+function setView(name) {
+  for (const [id, view] of [["store", "#store-view"], ["arch", "#arch-view"]]) {
+    $("#view-" + id).setAttribute("aria-pressed", String(name === id));
+    $(view).classList.toggle("hidden", name !== id);
+  }
+  fit();
+}
+$("#view-store").onclick = () => setView("store");
+$("#view-arch").onclick = () => setView("arch");
+setView("store");
 let switches = 0;  // a message queued before a shopper switch is dropped, not sent as the new shopper
 // a new shopper's turns don't wait for the old one's: it is another conversation and its stream is dropped
 $('#shopper').onchange = () => {
   switches++;
+  resetBoxes();  // at the moment of the switch, as the chat and the step log are emptied
   sending = Promise.resolve();
   for (const s of ['#msgs', '#panel', '#orders']) $(s).textContent = '';  // nothing of the old shopper while the new one loads
   for (const s of ['.order-card', '.orders-summary']) $(s).textContent = '';  // the cards refill once the new conversation loads
