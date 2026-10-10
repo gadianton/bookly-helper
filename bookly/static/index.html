@@ -85,21 +85,24 @@
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   .ev-triage, .ev-standby, .ev-tap { color: var(--accent); }
   .ev-turn { font-weight: 600; margin-top: 8px; }
-  #bubble { position: fixed; z-index: 10; right: 16px; bottom: 16px; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--accent); color: var(--me-fg); font-size: 24px; cursor: pointer; }
-  #chat { display: none; position: fixed; z-index: 10; right: 16px; bottom: 84px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--line); border-radius: 12px; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  /* Chat */
+  #bubble { position: fixed; z-index: 10; right: 24px; bottom: 24px; height: 56px; padding: 0 20px 0 16px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 10px 24px rgba(35,68,201,.35); }
+  #chat { display: none; position: fixed; z-index: 10; right: 24px; bottom: 96px; width: 380px; max-width: calc(100vw - 48px); height: 540px; max-height: calc(100vh - 120px); background: #fff; border: 1px solid #E4E7EE; border-radius: 20px; box-shadow: 0 24px 60px rgba(18,20,26,.20); overflow: hidden; flex-direction: column; }
   #chat.open { display: flex; }
-  #chat header { padding: 10px 12px; }
-  #msgs { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .msg { padding: 8px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; }
-  .me { align-self: flex-end; background: var(--me); color: var(--me-fg); }
-  .bot { align-self: flex-start; background: var(--bot); }
-  .choices { display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; max-width: 95%; }
-  .choice { padding: 6px 10px; border: 1px solid var(--accent); border-radius: 999px; background: var(--card); color: var(--accent); font: inherit; font-size: 14px; cursor: pointer; }
-  .choice:active { background: var(--accent); color: var(--me-fg); }
-  .choice[disabled] { border-color: var(--line); background: var(--bot); color: var(--muted); cursor: default; }
-  form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
-  #input { flex: 1; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
-  #send { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--me-fg); font: inherit; cursor: pointer; }
+  #chat header { padding: 16px; background: var(--ink); color: #fff; display: flex; align-items: center; gap: 12px; border: 0; }
+  .badge { width: 36px; height: 36px; border-radius: 12px; background: var(--accent); display: grid; place-items: center; font: 700 15px 'Bricolage Grotesque', sans-serif; }
+  .online { font-size: 12px; color: #B9BECB; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--online); }
+  #msgs { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow: auto; background: var(--surface-2); }
+  .msg { padding: 10px 14px; border-radius: 16px; max-width: 85%; white-space: pre-wrap; }
+  .msg.bot { align-self: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 16px 16px 16px 6px; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 16px 16px 6px 16px; }
+  .choices { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; align-self: flex-start; }
+  .choice { font-weight: 600; font-size: 14px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--accent-tint-border); border-radius: 12px; background: var(--accent-tint); color: var(--accent); cursor: pointer; }
+  .choice[disabled] { background: var(--surface); border-color: var(--line-strong); color: var(--muted); cursor: default; }
+  form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+  #input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; color: var(--fg); }
+  #send { width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -141,11 +144,26 @@
   <aside id="panel" aria-label="Agent panel"></aside>
 </main>
 
-<button id="bubble" aria-label="Open chat">&#128172;</button>
+<button id="bubble" aria-label="Open chat">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>
+  Help
+</button>
 <div id="chat" role="dialog" aria-label="Bookly chat">
-  <header><b>Bookly help</b></header>
+  <header>
+    <span class="badge">b</span>
+    <div>
+      <div style="font-weight:700">Bookly support</div>
+      <div class="online"><span class="dot"></span>Online now</div>
+    </div>
+  </header>
   <div id="msgs" aria-live="polite"></div>
-  <form id="form"><input id="input" autocomplete="off" placeholder="Ask about an order or a return"><button id="send">Send</button></form>
+  <form id="form">
+    <label for="input" class="sr-only">Message</label>
+    <input id="input" autocomplete="off" placeholder="Ask about an order or a return">
+    <button id="send" aria-label="Send">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+    </button>
+  </form>
 </div>
 
 <script>
