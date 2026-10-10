@@ -21,6 +21,8 @@
   #how-view { display: flex; flex-direction: column; gap: 10px; }
   #how-view[hidden] { display: none; }
   @media (min-width: 1000px) { #how-view { padding-right: 412px; } }
+  #store-view, #how-view { transition: opacity 0.2s cubic-bezier(0.23, 1, 0.32, 1); }
+  #store-view[data-fade], #how-view[data-fade] { opacity: 0; }
   .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
   .book { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
   .book b { display: block; font-family: Georgia, serif; }
@@ -32,7 +34,8 @@
   #diagram { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px 10px;
     grid-template-areas: ". sf sf ." "a a a a" "jev jev st st" "b b b b" ". path path ." "c c c c" "model model fixed fixed" "d d d d" "orders policy returns handoff"; }
   #diagram .arrow { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.15; }
-  .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 12px; line-height: 1.35; color: var(--muted);
+    transition: color 0.2s cubic-bezier(0.23, 1, 0.32, 1), background-color 0.2s cubic-bezier(0.23, 1, 0.32, 1), border-color 0.2s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.2s cubic-bezier(0.23, 1, 0.32, 1); }
   .box b { display: block; font: 600 13px Georgia, serif; margin-bottom: 2px; }
   .box[data-state="lit"] { color: var(--fg); border-color: var(--accent); background: var(--lit); }
   .box[data-state="lit"] b { color: var(--accent); }
@@ -67,6 +70,7 @@
   form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
   #input { flex: 1; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
   #send { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--me-fg); font: inherit; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { .box, #store-view, #how-view { transition: none; } }
 </style>
 </head>
 <body>
@@ -362,8 +366,15 @@ $('#view-switch').addEventListener('click', e => {
   const btn = e.target.closest('button');
   if (!btn) return;
   for (const b of $('#view-switch').children) b.setAttribute('aria-pressed', String(b === btn));
+  const shown = btn.dataset.view === 'how' ? $('#how-view') : $('#store-view');
+  const fade = shown.hidden;  // the incoming view fades in on the approved curve; the outgoing hides at once
   $('#store-view').hidden = btn.dataset.view === 'how';
   $('#how-view').hidden = btn.dataset.view !== 'how';
+  if (fade) {
+    shown.dataset.fade = '';
+    void shown.offsetHeight;  // render the transparent start, then let the transition fade the view in
+    delete shown.dataset.fade;
+  }
 });
 let switches = 0;  // a message queued before a shopper switch is dropped, not sent as the new shopper
 // a new shopper's turns don't wait for the old one's: it is another conversation and its stream is dropped
