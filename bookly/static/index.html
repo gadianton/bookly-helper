@@ -5,15 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookly</title>
 <style>
-  :root { --bg: #faf7f2; --fg: #2b2622; --muted: #7a716a; --card: #fff; --line: #e6dfd6; --accent: #8a3b12; --bot: #f1ece5; --me: #8a3b12; --me-fg: #fff; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1d1a18; --fg: #eee7df; --muted: #a59b92; --card: #272320; --line: #3a3430; --accent: #e08a5a; --bot: #312c28; --me: #e08a5a; --me-fg: #1d1a18; } }
+  /* Look B tokens (design/look-b.md): the old names keep Look B values, so the
+     architecture view's diagram keeps its colours at merge */
+  :root { --bg: #FFFFFF; --fg: #12141A; --muted: #5B6170; --card: #FFFFFF; --line: #ECEEF3; --accent: #2344C9; --bot: #FFFFFF; --me: #2344C9; --me-fg: #FFFFFF;
+          --ink: #12141A; --surface: #F3F4F7; --surface-2: #F8F9FB; --accent-tint: #EEF2FF; --online: #3FD18A;
+          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; }
+  @font-face { font-family: 'Manrope'; src: url('/static/fonts/manrope.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Bricolage Grotesque'; src: url('/static/fonts/bricolage-grotesque.woff2') format('woff2'); font-weight: 600 700; font-style: normal; font-display: swap; }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
-  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--line); }
-  h1 { margin: 0; font: 600 24px Georgia, serif; color: var(--accent); }
-  header label { color: var(--muted); font-size: 14px; }
+  body { margin: 0; font: 15px/1.5 'Manrope', sans-serif; background: var(--bg); color: var(--fg); }
+  button { cursor: pointer; font: inherit; }
+  a { color: var(--accent); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* Top strip */
+  .top-strip { background: var(--ink); color: #E8EAF0; font-size: 13px; text-align: center; padding: 8px 16px; }
+
+  /* Header */
+  header { border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1220px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  h1 { margin: 0; font: 700 26px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.03em; }
+  .search { flex: 1 1 280px; display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 44px; border-radius: 999px; background: var(--surface); color: var(--muted); }
+  .search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--fg); outline: none; }
+  .header-actions { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+  .account { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  #shopper { font: inherit; font-weight: 600; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; color: var(--fg); }
+  .switch { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 10px; cursor: pointer; color: var(--muted); }
+  .switch input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .bag { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line-strong); background: #fff; color: var(--fg); display: grid; place-items: center; }
+
+  /* Category chips */
+  .chips { max-width: 1220px; margin: 0 auto; padding: 0 24px 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 8px 14px; border-radius: 999px; border: 0; background: var(--surface); color: var(--fg); font-size: 14px; }
+  .chip.active { background: var(--ink); color: #fff; font-weight: 600; }
   main { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
   @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  #storefront { display: flex; flex-direction: column; gap: 36px; }
   .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
   .book { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
   .book b { display: block; font-family: Georgia, serif; }
@@ -25,8 +52,8 @@
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   .ev-triage, .ev-standby, .ev-tap { color: var(--accent); }
   .ev-turn { font-weight: 600; margin-top: 8px; }
-  #bubble { position: fixed; right: 16px; bottom: 16px; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--accent); color: var(--me-fg); font-size: 24px; cursor: pointer; }
-  #chat { display: none; position: fixed; right: 16px; bottom: 84px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--line); border-radius: 12px; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  #bubble { position: fixed; z-index: 10; right: 16px; bottom: 16px; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--accent); color: var(--me-fg); font-size: 24px; cursor: pointer; }
+  #chat { display: none; position: fixed; z-index: 10; right: 16px; bottom: 84px; width: min(380px, calc(100vw - 32px)); height: min(520px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--line); border-radius: 12px; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
   #chat.open { display: flex; }
   #chat header { padding: 10px 12px; }
   #msgs { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
@@ -43,17 +70,35 @@
 </style>
 </head>
 <body>
+<div class="top-strip">Free shipping on orders over $35 &middot; 30-day returns</div>
 <header>
-  <h1>Bookly</h1>
-  <div>
-    <label>Signed in as
-      <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
+  <div class="bar">
+    <h1>bookly</h1>
+    <label class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span class="sr-only">Search</span>
+      <input placeholder="Search titles, authors, ISBN">
     </label>
-    <label><input type="checkbox" id="panel-toggle"> Agent panel</label>
+    <div class="header-actions">
+      <label class="account">Account
+        <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
+      </label>
+      <label class="switch"><input type="checkbox" id="panel-toggle"> Agent panel</label>
+      <button type="button" class="bag" aria-label="Bag, 0 items">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>
+      </button>
+    </div>
   </div>
+  <nav class="chips" aria-label="Categories">
+    <button type="button" class="chip active">New releases</button>
+    <button type="button" class="chip">Bestsellers</button>
+    <button type="button" class="chip">Fiction</button>
+    <button type="button" class="chip">Sci-fi &amp; fantasy</button>
+    <button type="button" class="chip">eBooks</button>
+  </nav>
 </header>
 <main>
-  <section>
+  <div id="storefront">
     <h2>New this week</h2>
     <div class="shelf">
       <div class="book"><b>The Midnight Library</b><span>Matt Haig · $14.99</span></div>
@@ -63,7 +108,7 @@
     </div>
     <h2>Your orders</h2>
     <ul id="orders"></ul>
-  </section>
+  </div>
   <aside id="panel" aria-label="Agent panel"></aside>
 </main>
 
