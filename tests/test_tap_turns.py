@@ -94,6 +94,16 @@ def test_tapped_book_follows_its_order(store, settings):
     assert _context_book(model.requests[-1]["system"]) is None
 
 
+def test_quote_for_another_book_in_the_order_becomes_the_kept_book(store, settings):
+    jev = fake_triage(answers(intent="return", order="BL-10421"), answers(intent="return", order="can't tell"))
+    model = FakeReplyModel(("return_quote", {"order_id": "BL-10421", "item_id": "BL-10421-1", "condition": "not stated"}))
+    convo = _convo(store, settings, jev, model)
+    convo.send("Klara and the Sun", pick={"intent": "return", "order": "BL-10421", "item": "BL-10421-2"})
+    convo.send("actually The Midnight Library, it arrived damaged")  # the model quotes the typed book
+    convo.send("it is unread")  # names no book: the quoted one still applies
+    assert _context_book(model.requests[-1]["system"]) == {"item_id": "BL-10421-1", "title": "The Midnight Library"}
+
+
 def test_tap_gives_no_return_reason(store, settings):
     model = FakeReplyModel(("return_quote", {"order_id": "BL-10498", "item_id": "BL-10498-1", "condition": "not stated"}),
                            ("reply", {"text": "Why are you returning it?", "needs_answer": True}))

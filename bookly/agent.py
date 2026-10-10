@@ -172,6 +172,8 @@ class Conversation:
             if not item:
                 return "orders", {"result": "not found"}
             reason, s = t["reason"], self.state
+            if s["book"] and order["id"] == s["kept_order"] and item["item_id"] != s["book"]["item_id"]:
+                s["book"] = {"item_id": item["item_id"], "title": item["title"]}  # quoted another book: later turns mean it
             if t["raw"]["reason"]["pick"] == "not said" and s["reason_item"] not in (None, item["item_id"]):
                 reason = "not said"  # the kept reason was given for another book: ask for this one's
             if reason != "not said":
