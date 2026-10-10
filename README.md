@@ -26,7 +26,7 @@ Plain chat in the terminal (type messages, `quit` to end). Each reply is followe
 uv run python -m bookly.chat --shopper maya
 ```
 
-Storefront with the pop-up chat, at http://127.0.0.1:8000; the header's "How it works" switch shows the live diagram
+Storefront with the pop-up chat, at http://127.0.0.1:8000 (or the next free port when 8000 is taken; the server prints its address); the header's "How it works" switch shows the live diagram
 of the agent, with the step log under it:
 
 ```
