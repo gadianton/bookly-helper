@@ -20,7 +20,8 @@
   #store-view, #arch-view { grid-area: 1 / 1; transition: opacity 200ms var(--ease), visibility 0s 0ms; }
   #store-view { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
   @media (max-width: 800px) { #store-view { grid-template-columns: 1fr; } }
-  #store-view.hidden, #arch-view.hidden { opacity: 0; visibility: hidden; transition: opacity 200ms var(--ease), visibility 0s 200ms; }
+  /* the hidden view takes no height, so the shown one alone sets the page's length; its content still paints during the fade */
+  #store-view.hidden, #arch-view.hidden { max-height: 0; opacity: 0; visibility: hidden; transition: opacity 200ms var(--ease), visibility 0s 200ms; }
   #head-controls { display: flex; gap: 12px; align-items: center; }
   .switch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .switch button { border: 0; padding: 7px 12px; font: 600 13px system-ui, sans-serif; background: transparent; color: var(--muted); cursor: pointer; }
@@ -272,6 +273,7 @@ function paintArrows() {  // an arrow is ink while the box it points to is lit, 
 }
 
 function resetBoxes() {
+  turnEvents = {};  // the old turn's route must not keep the arrows out of Path rules ink
   for (const b of document.querySelectorAll('.box')) {
     b.dataset.look = 'idle';
     b.querySelector('.box-title').textContent = b.dataset.title;
@@ -283,7 +285,6 @@ function resetBoxes() {
 }
 
 function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn starts when its message is sent
-  turnEvents = {};
   resetBoxes();
   if (msg.tap) {
     setBox('storefront', 'lit', [`tapped “${msg.tap}”`]);
