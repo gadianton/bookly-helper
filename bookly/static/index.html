@@ -38,9 +38,27 @@
   .chips { max-width: 1220px; margin: 0 auto; padding: 0 24px 12px; display: flex; gap: 8px; flex-wrap: wrap; }
   .chip { padding: 8px 14px; border-radius: 999px; border: 0; background: var(--surface); color: var(--fg); font-size: 14px; }
   .chip.active { background: var(--ink); color: #fff; font-weight: 600; }
-  main { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  main { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 28px 24px 120px; max-width: 1220px; margin: 0 auto; }
+  main:has(#panel.on) { grid-template-columns: 1fr minmax(0, 420px); }  /* the Agent panel: a right-hand column beside the store content */
+  @media (max-width: 800px) { main, main:has(#panel.on) { grid-template-columns: 1fr; } }
   #storefront { display: flex; flex-direction: column; gap: 36px; }
+
+  /* Orders area */
+  .orders { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+  .order-card { flex: 2 1 420px; padding: 20px; border-radius: 16px; background: var(--accent-tint); display: flex; gap: 16px; align-items: center; }
+  .order-card .cover-block { width: 64px; height: 96px; flex: none; }
+  .status-label { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+  .order-title { font-weight: 700; font-size: 17px; margin-top: 2px; }
+  .order-line { color: var(--muted); font-size: 14px; }
+  .bar-track { margin-top: 10px; height: 6px; border-radius: 999px; background: #D5DCFA; }
+  .bar-fill { width: 66%; height: 6px; border-radius: 999px; background: var(--accent); }
+  .orders-summary { flex: 1 1 240px; padding: 20px; border-radius: 16px; background: #F6F7F9; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+  .orders-summary b { font-weight: 700; }
+  .orders-summary .recent { color: var(--muted); font-size: 14px; }
+  .all-orders { font-weight: 600; font-size: 14px; margin-top: 6px; cursor: pointer; }
+  .orders-list { display: none; border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 4px 20px; }
+  .orders-list.open { display: block; }
+
   /* Coloured cover blocks — colour rule: the first title's character codes,
      summed, mod 5, index the mockup's five colour pairs:
      0 #1E3A5F/#F2EBD9  1 #C2462B/#FFF4E8  2 #F0C64A/#2A2108
@@ -62,7 +80,7 @@
   .add { font-weight: 600; font-size: 14px; padding: 8px 14px; min-height: 36px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; }
   #orders li { margin: 4px 0; }
   #orders small { color: var(--muted); }
-  #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
+  #panel { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
   #panel.on { display: block; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   .ev-triage, .ev-standby, .ev-tap { color: var(--accent); }
@@ -114,8 +132,11 @@
 </header>
 <main>
   <div id="storefront">
-    <h2>Your orders</h2>
-    <ul id="orders"></ul>
+    <section class="orders" aria-label="Your orders">
+      <div class="order-card"></div>
+      <div class="orders-summary"></div>
+    </section>
+    <div class="orders-list"><ul id="orders"></ul></div>
   </div>
   <aside id="panel" aria-label="Agent panel"></aside>
 </main>
@@ -169,6 +190,54 @@ function coverBlock(title, size) {  // a coloured block standing in for a cover
   el.style.color = fg;
   el.textContent = title;
   return el;
+}
+function daysAgo(isoDate, today) {  // days counted from the store's today, never the browser's clock
+  const n = Math.round((Date.parse(today) - Date.parse(isoDate)) / 86400000);
+  return n <= 0 ? 'today' : n === 1 ? '1 day ago' : `${n} days ago`;
+}
+function showOrderCards(c) {  // the two cards above the shelves, filled from the conversation start
+  const newest = c.orders[0];
+  const label = {processing: 'Preparing', shipped: 'On its way', delivered: 'Delivered'}[newest.status];
+  const when = {processing: `Ordered ${daysAgo(newest.order_date, c.today)}`,
+                shipped: `Shipped ${newest.carrier ? 'with ' + newest.carrier + ' ' : ''}${daysAgo(newest.order_date, c.today)}`,
+                delivered: `Delivered ${daysAgo(newest.delivered_date, c.today)}`}[newest.status];
+  const card = $('.order-card');
+  card.textContent = '';
+  const [bg, fg] = coverColour(newest.titles[0]);
+  const block = document.createElement('div');
+  block.className = 'cover-block';
+  block.style.background = bg;
+  block.style.color = fg;
+  const body = document.createElement('div');
+  for (const [cls, text] of [['status-label', label], ['order-title', newest.titles.join(', ')],
+                              ['order-line', `${newest.id} · ${when}`]]) {
+    const el = document.createElement('div');
+    el.className = cls;
+    el.textContent = text;
+    body.appendChild(el);
+  }
+  const track = document.createElement('div');
+  track.className = 'bar-track';
+  const fill = document.createElement('div');
+  fill.className = 'bar-fill';
+  fill.style.width = {processing: '33.333%', shipped: '66.667%', delivered: '100%'}[newest.status];
+  track.appendChild(fill);
+  body.appendChild(track);
+  card.append(block, body);
+
+  const delivered = c.orders.filter(o => o.status === 'delivered');
+  const summary = $('.orders-summary');
+  summary.textContent = '';
+  const count = document.createElement('b');
+  count.textContent = `${delivered.length} delivered order${delivered.length === 1 ? '' : 's'}`;
+  const recent = document.createElement('span');
+  recent.className = 'recent';
+  if (delivered.length) recent.textContent = `Most recent: ${delivered[0].titles.join(', ')}`;
+  const all = document.createElement('a');
+  all.className = 'all-orders';
+  all.textContent = 'All orders →';
+  all.onclick = () => $('#orders').parentElement.classList.toggle('open');  // today's order list, hidden until asked for
+  summary.append(count, recent, all);
 }
 function bookCard(b) {
   const card = document.createElement('article');
@@ -259,6 +328,7 @@ async function startConversation() {
     li.appendChild(small);
     $('#orders').appendChild(li);
   }
+  showOrderCards(c);
   add($('#msgs'), 'msg bot', `Hi ${c.name.split(' ')[0]}, what can I help with?`);
   showChoices(HELP);
 }
@@ -333,6 +403,7 @@ $('#shopper').onchange = () => {
   switches++;
   sending = Promise.resolve();
   for (const s of ['#msgs', '#panel', '#orders']) $(s).textContent = '';  // nothing of the old shopper while the new one loads
+  for (const s of ['.order-card', '.orders-summary']) $(s).textContent = '';  // the cards refill once the new conversation loads
   ready = startConversation();
 };
 let sending = Promise.resolve();  // one turn at a time: two at once would share one conversation's state
