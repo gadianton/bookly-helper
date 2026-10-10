@@ -26,6 +26,10 @@ class Ledger:
         with self.lock:
             return self._act(*args, **kwargs)
 
+    def returned(self, shopper_id: str, item_id: str) -> bool:
+        with self.lock:
+            return (shopper_id, item_id) in self._returned
+
     def _quote(self, shopper_id, order, item, reason, condition, today, turn, claims=(), chat=None) -> dict:
         if (shopper_id, item["item_id"]) in self._returned:
             return {"result": "already returned", "why": f"{item['title']} was already returned", "sentence": ""}

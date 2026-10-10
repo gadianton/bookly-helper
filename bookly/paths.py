@@ -10,7 +10,8 @@ NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
 
 def new_state() -> dict:
     return {"handed_off": False, "last_reply_kind": None, "last_model_intent": None,
-            "kept_order": None, "kept_reason": None, "reason_item": None, "tag": None}
+            "kept_order": None, "kept_reason": None, "reason_item": None, "tag": None,
+            "book": None}  # the tapped book {"item_id", "title"}: set by a book tap, gone with its order
 
 
 def pick_path(t: dict, s: dict) -> dict:
@@ -65,12 +66,14 @@ def fixed_text(path: str, shopper_orders: list[dict], now) -> str:
         return "Happy to help. Do you need the status of an order, or help with a return?"
     if path == "clarify_order":
         return "Which order do you mean?\n" + _orders_list(shopper_orders)
+    if path == "clarify_book":
+        return "Which book would you like to return?"
     raise ValueError(path)
 
 
 def tag_for(path: str, needs_answer: bool, offer_pending: bool, handed_off: bool) -> str:
     if handed_off or path in ("handoff", "wait"):
         return "handed off"
-    if path in ("scope", "signoff", "clarify_intent", "clarify_order") or offer_pending or needs_answer:
+    if path in ("scope", "signoff", "clarify_intent", "clarify_order", "clarify_book") or offer_pending or needs_answer:
         return "asked"
     return "resolved"
