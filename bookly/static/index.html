@@ -27,7 +27,7 @@
   h1 { margin: 0; font: 700 26px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.03em; }
   .search { flex: 1 1 280px; display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 44px; border-radius: 999px; background: var(--surface); color: var(--muted); }
   .search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--fg); outline: none; }
-  .header-actions { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+  .header-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14px; }  /* wraps: the view switch makes the row too wide for a phone */
   .account { display: flex; gap: 6px; align-items: center; color: var(--muted); }
   #shopper { font: inherit; font-weight: 600; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; color: var(--fg); }
   /* the view switch: Storefront | How it works, in the header's colours */
