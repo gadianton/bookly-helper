@@ -16,7 +16,7 @@
   h1 { margin: 0; font: 600 24px Georgia, serif; color: var(--accent); }
   header label { color: var(--muted); font-size: 14px; }
   main { display: grid; }
-  main:has(#arch-view:not(.hidden)) { background: #FFFFFF; }
+  main:has(#arch-view:not(.hidden)) { background: #FFFFFF; min-height: calc(100vh - var(--header-h, 0px)); }
   #store-view, #arch-view { grid-area: 1 / 1; }
   #store-view { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: 24px; padding: 16px; max-width: 1200px; margin: 0 auto; }
   @media (max-width: 800px) { #store-view { grid-template-columns: 1fr; } }
@@ -40,6 +40,11 @@
   #tools-label { position: absolute; left: 848px; top: 116px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
   .box { position: absolute; width: 148px; padding: 10px 12px; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
   .box-title { font-weight: 700; }
+  /* a box holds whole rows and clips the rest: 4 rows of 18 px in the 104/96 px boxes
+     (3 under the title), 3 in the 88 px boxes (2 under the title); the clamp draws the
+     ellipsis on the last row shown, and the full line stays in the element */
+  .box-lines { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--rows, 3); max-height: calc(var(--rows, 3) * 18px); }
+  .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --rows: 2; }
   .box[data-look="lit"] { background: #FFFFFF; border: 2px solid var(--ink); box-shadow: 0 0 0 4px var(--accent-tint); color: var(--ink); }
   .box[data-look="skipped"] { background: #FFFFFF; border: 2px dashed var(--muted); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
   .box[data-look="idle"] { background: var(--surface); border: 2px dashed var(--line-strong); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
@@ -215,7 +220,78 @@ function tap(b) {  // a tap is a turn like a typed message, but it settles what 
     .catch(() => at === switches && onEvent({step: 'error', error: 'the chat request failed'}));
 }
 
+// ---- the diagram's lights -----------------------------------------------------
+
+for (const b of document.querySelectorAll('.box')) b.dataset.title = b.querySelector('.box-title').textContent;
+let turnEvents = {};  // what the current turn has seen (a standby before its triage)
+
+function fmtTime(ms) { ms = Number(ms); return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`; }
+
+function setBox(name, look, lines, title) {
+  const b = document.querySelector(`.box[data-box=${name}]`);
+  if (!b) return;
+  b.dataset.look = look;
+  if (title !== undefined) b.querySelector('.box-title').textContent = title;
+  const el = b.querySelector('.box-lines');
+  el.textContent = '';
+  lines.forEach((l, i) => { if (i) el.appendChild(document.createElement('br')); el.append(l); });
+  paintArrows();
+}
+
+function paintArrows() {  // an arrow is ink while the box it points to is lit (path exceptions come with the paths slice)
+  for (const a of document.querySelectorAll('[data-arrow]')) {
+    const to = a.dataset.to && document.querySelector(`.box[data-box=${a.dataset.to}]`);
+    a.classList.toggle('ink', !!to && to.dataset.look === 'lit');
+  }
+}
+
+function resetBoxes() {
+  for (const b of document.querySelectorAll('.box')) {
+    b.dataset.look = 'idle';
+    b.querySelector('.box-title').textContent = b.dataset.title;
+    b.querySelector('.box-lines').textContent = b.dataset.box === 'standin' ? 'not needed' : 'idle';
+  }
+  paintArrows();
+  $('#last-turn').textContent = 'No turn yet · send a message in the chat';
+  $('#turn-failed').textContent = '';
+}
+
+function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn starts when its message is sent
+  turnEvents = {};
+  resetBoxes();
+  if (msg.tap) {
+    setBox('storefront', 'lit', [`tapped “${msg.tap}”`]);
+    $('#last-turn').textContent = `Last turn: tapped “${msg.tap}” · lit until the next message`;
+  } else {
+    setBox('storefront', 'lit', [`typed: “${msg}”`]);
+    const cut = msg.length > 60 ? msg.slice(0, 60) + '…' : msg;
+    $('#last-turn').textContent = `Last turn: “${cut}” · lit until the next message`;
+  }
+}
+
+function routeBox(e) {  // the events that light boxes; reply, tag and the rest stay step-log only
+  if (e.step === 'standby') {
+    turnEvents.standby = true;
+    setBox('jev', 'skipped', [`skipped: ${e.why} (${e.detail})`]);
+  } else if (e.step === 'tap') {
+    setBox('jev', 'skipped', ['skipped: tap']);
+  } else if (e.step === 'triage') {
+    const r = e.result, a = e.answers || {};
+    const order = r.effective_order && r.effective_order !== "can't tell" ? r.effective_order : 'no order';
+    const when = `${order} · ${fmtTime(e.model_ms)}`;
+    if (e.model === 'jev') {
+      const conf = a.intent && a.intent.confidence != null ? ` · ${Number(a.intent.confidence).toFixed(2)}` : '';
+      const mood = [r.person && 'person', r.angry && 'upset'].filter(Boolean).join(' · ');
+      setBox('jev', 'lit', [r.intent + conf, when, ...(mood ? [mood] : [])]);
+    } else {
+      if (!turnEvents.standby) setBox('jev', 'skipped', ['off: Haiku is triage']);
+      setBox('standin', 'lit', [r.intent, when]);
+    }
+  }
+}
+
 async function startConversation() {
+  resetBoxes();  // loading a conversation puts every box back to idle (page load, shopper switch, retry load)
   const shopper = $('#shopper').value, at = switches;
   const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
   const c = await r.json();
@@ -258,6 +334,7 @@ function describe(e) {
     case 'model_call': return `reply model call: ${ms}`;
     case 'tool_call': return `tool ${e.name} [${e.source}] ${JSON.stringify(e.input)} -> ${JSON.stringify(e.result)} ${ms}`;
     case 'handoff': return `handoff: ${e.reason}`;
+    case 'reply': return `reply: ${e.text}`;
     case 'tag': return `tag: ${e.tag}`;
     case 'error': return `error: ${e.error}`;
     default: return null;
@@ -268,6 +345,7 @@ function onEvent(e) {
   if (e.step === 'reply') add($('#msgs'), 'msg bot', e.text);
   if (e.step === 'choices') showChoices(e.choices);
   if (e.step === 'error') add($('#msgs'), 'msg bot', 'Sorry, something went wrong. Please try again.');
+  routeBox(e);  // the diagram's lights
   const line = describe(e);
   if (line) add($('#panel'), `ev ev-${e.step}`, line);
 }
@@ -276,6 +354,7 @@ async function send(text, at, n, pick) {
   await ready.catch(() => (ready = startConversation()));  // the conversation failed to load: try again
   if (at !== switches) return;  // the shopper switched while the conversation loaded: this message was for the old one
   let sent = conversationId;
+  startTurn(pick ? {tap: text} : text);  // the turn starts when its message is sent, not when it was queued
   add($('#msgs'), 'msg me', text);
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -302,6 +381,7 @@ async function send(text, at, n, pick) {
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
 function fit() {  // scale the fixed 1056x760 drawing to the window, keeping the 412 px chat strip clear
   const w = innerWidth, hh = document.querySelector('header').offsetHeight;
+  document.documentElement.style.setProperty('--header-h', hh + 'px');  // the white view fills below the header
   const s = w >= 1000 ? Math.min(1, (w - 412) / 1056, (innerHeight - hh) / 760)
                       : Math.min(1, w / 1056);
   $('#arch').style.transform = `scale(${s})`;
@@ -323,6 +403,7 @@ let switches = 0;  // a message queued before a shopper switch is dropped, not s
 // a new shopper's turns don't wait for the old one's: it is another conversation and its stream is dropped
 $('#shopper').onchange = () => {
   switches++;
+  resetBoxes();  // at the moment of the switch, as the chat and the step log are emptied
   sending = Promise.resolve();
   for (const s of ['#msgs', '#panel', '#orders']) $(s).textContent = '';  // nothing of the old shopper while the new one loads
   ready = startConversation();
