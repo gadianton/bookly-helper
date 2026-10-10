@@ -33,7 +33,7 @@
   #orders small { color: var(--muted); }
   /* the diagram view: Look B, fixed light colours in both colour settings */
   #arch-view { --ink: #12141A; --muted: #5B6170; --page: #FFFFFF; --surface: #F3F4F7; --line: #ECEEF3; --line-strong: #DDE0E7; --accent: #2344C9; --accent-tint: #EEF2FF; --fail: #C13A2B; background: var(--page); color: var(--ink); font: 13px/18px "Manrope", system-ui, sans-serif; }
-  #arch { position: relative; width: 1056px; height: 760px; }
+  #arch { position: relative; width: 1056px; height: 760px; transform-origin: top left; }
   .arch-title { position: absolute; left: 64px; top: 36px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
   #last-turn { position: absolute; left: 64px; top: 70px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #turn-failed { position: absolute; left: 64px; top: 94px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -300,11 +300,21 @@ async function send(text, at, n, pick) {
 }
 
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
+function fit() {  // scale the fixed 1056x760 drawing to the window, keeping the 412 px chat strip clear
+  const w = innerWidth, hh = document.querySelector('header').offsetHeight;
+  const s = w >= 1000 ? Math.min(1, (w - 412) / 1056, (innerHeight - hh) / 760)
+                      : Math.min(1, w / 1056);
+  $('#arch').style.transform = `scale(${s})`;
+  $('#arch-view').style.width = 1056 * s + 'px';  // the view's box is the scaled drawing, so the page doesn't scroll
+  $('#arch-view').style.height = 760 * s + 'px';
+}
+addEventListener('resize', fit);
 function setView(name) {
   for (const [id, view] of [["store", "#store-view"], ["arch", "#arch-view"]]) {
     $("#view-" + id).setAttribute("aria-pressed", String(name === id));
     $(view).classList.toggle("hidden", name !== id);
   }
+  fit();
 }
 $("#view-store").onclick = () => setView("store");
 $("#view-arch").onclick = () => setView("arch");
