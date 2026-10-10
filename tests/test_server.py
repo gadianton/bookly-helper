@@ -1,4 +1,5 @@
 import copy
+import os
 import socket
 import uuid
 from datetime import timedelta
@@ -66,6 +67,7 @@ def test_free_port_holds_its_port_so_the_next_server_takes_another():
         first.close()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="free_port sets no SO_REUSEADDR on Windows")
 def test_free_port_takes_back_a_port_its_last_run_closed_connections_on():
     last_run = server.free_port(18100)
     port = last_run.getsockname()[1]
