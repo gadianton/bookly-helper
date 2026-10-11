@@ -124,6 +124,8 @@ def test_model_closing_line_not_doubled(store, settings):
     assert first["reply"] == "Your order has shipped. Anything else I can help with?"  # kept exactly (R2.1)
     assert second["reply"] == "Your order has shipped.\n" + CLOSING  # added once (R2.2)
     assert first["ending"] is True and second["ending"] is True
+    # the model's own "anything else" question still gets the three closing buttons
+    assert choices(first, store.orders("maya"), lambda item: False) == NO_MORE
     assert convo.state["last_reply_kind"] == "closing"
 
 
