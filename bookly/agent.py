@@ -148,8 +148,11 @@ class Conversation:
         return {"reply": reply, "path": path, "tag": s["tag"], "intent": intent, "ending": ending}
 
     def _leave_with_team(self):
-        # the reason and tapped book stay with what the team has: a later return asks for its own
+        # the reason, tapped book and pending offers stay with what the team has: a later return asks for
+        # its own, and a later yes can't carry out an offer the handoff reply never showed
         self.state["kept_reason"] = self.state["reason_item"] = self.state["book"] = None
+        with self.ledger.lock:
+            self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self}
 
     def _handoff(self, text, reason, emit, path="handoff", intent=None):
         start = time.perf_counter()
