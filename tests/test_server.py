@@ -1,6 +1,8 @@
 import asyncio
 import copy
 import json
+import os
+import socket
 import uuid
 from datetime import timedelta
 
@@ -86,6 +88,35 @@ def test_done_pick_accepted_by_chat(placed):
                          pick={"intent": "done"})
     events = _stream_events(server.chat(body))
     assert events[-1]["step"] == "done" and events[-1]["path"] == "goodbye"
+
+
+def test_free_port_holds_its_port_so_the_next_server_takes_another():
+    first = server.free_port(18000)
+    try:
+        second = server.free_port(first.getsockname()[1])  # first is still bound, as when two servers start at once
+        try:
+            assert second.getsockname()[1] > first.getsockname()[1]
+        finally:
+            second.close()
+    finally:
+        first.close()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="free_port sets no SO_REUSEADDR on Windows")
+def test_free_port_takes_back_a_port_its_last_run_closed_connections_on():
+    last_run = server.free_port(18100)
+    port = last_run.getsockname()[1]
+    client = socket.create_connection(("127.0.0.1", port))
+    conn, _ = last_run.accept()
+    conn.close()  # the server closes first, so its side of the connection waits in TIME_WAIT on the port
+    client.close()
+    last_run.close()
+
+    restart = server.free_port(port)
+    try:
+        assert restart.getsockname()[1] == port
+    finally:
+        restart.close()
 
 
 def test_conversation_start_sends_order_dates_the_storefront_cards_read(monkeypatch):

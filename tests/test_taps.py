@@ -1,6 +1,7 @@
+from bookly.agent import Conversation
 from bookly.returns import Ledger
 from bookly.taps import choices, valid_pick
-from tests.conftest import TODAY
+from tests.conftest import NOW, TODAY, FakeReplyModel, answers, fake_triage
 
 
 def _returned_prince(store):
@@ -75,12 +76,34 @@ def test_buttons_only_on_the_fixed_questions(store):
         {"label": "Where's my order", "pick": {"intent": "order status"}},
         {"label": "Return a book", "pick": {"intent": "return"}},
     ]
-    three = [
-        {"label": "Where's my order", "pick": {"intent": "order status"}},
-        {"label": "Return a book", "pick": {"intent": "return"}},
-        {"label": "No, that's all", "pick": {"intent": "done"}},
-    ]
     for out in ({"path": "handoff", "ending": True},
                 {"path": "order_status", "intent": "order status", "ending": True}):
-        assert choices(out, maya, none_returned) == three  # every ending gets the three buttons
-    assert choices({"path": "scope"}, maya, none_returned) == []
+        assert choices(out, maya, none_returned) == THREE  # every ending gets the three buttons
+    for out in ({"path": "order_status", "intent": "order status"}, {"path": "handoff"}, {"path": "scope"}):
+        assert choices(out, maya, none_returned) == []
+
+
+THREE = [
+    {"label": "Where's my order", "pick": {"intent": "order status"}},
+    {"label": "Return a book", "pick": {"intent": "return"}},
+    {"label": "No, that's all", "pick": {"intent": "done"}},
+]
+
+
+def test_proposed_answers_carry_no_pick_and_stop_at_three(store, settings):
+    def turn(reply):
+        convo = Conversation("maya", store, Ledger(), settings, now=NOW,
+                             anthropic=FakeReplyModel(("reply", reply)), jev=fake_triage(answers(order="BL-10498")))
+        out = convo.send("Where is my Little Prince?")
+        return out, choices(out, convo.orders, lambda item: False)
+
+    out, asked = turn({"text": "Which one?", "needs_answer": True, "answers": ["The first", " ", "B", "C", "D"]})
+    assert asked == [{"label": "The first"}, {"label": "B"}, {"label": "C"}]  # blanks dropped, at most 3, no pick
+    # an optional offer counts as asking, even on a finished reply: its answers, no closing line, not an ending
+    out, offered = turn({"text": "Delivered. Want to return it?", "needs_answer": False, "answers": ["Yes, return it"]})
+    assert offered == [{"label": "Yes, return it"}]
+    assert out["reply"] == "Delivered. Want to return it?" and out["ending"] is False
+    # a finished reply with no answers stays an ending: the closing line and the three buttons
+    out, closing = turn({"text": "Delivered.", "needs_answer": False})
+    assert closing == THREE
+    assert out["reply"] == "Delivered.\nIs there anything else I can help with?" and out["ending"] is True

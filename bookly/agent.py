@@ -35,7 +35,10 @@ _TOOLS = {
                   "text": {"type": "string"}, "needs_answer": {"type": "boolean"},
                   "offer_ids": {"type": "array", "items": {"type": "string"},
                                 "description": "The pending offers this reply states and asks the customer to accept "
-                                "or decline. Leave it out when the reply asks about no offer."}},
+                                "or decline. Leave it out when the reply asks about no offer."},
+                  "answers": {"type": "array", "items": {"type": "string"},
+                              "description": "When the reply asks the customer anything: 2-3 short answers the customer might give, "
+                              "in their own voice. Shown as buttons; a tap sends it as if typed."}},
                   "required": ["text", "needs_answer"]}},
 }
 TOOLS_BY_PATH = {
@@ -49,8 +52,9 @@ def _ms(start: float) -> float:
 
 
 class Conversation:
-    def __init__(self, shopper_id, store, ledger, settings, now=None, anthropic=None, jev=None):
+    def __init__(self, shopper_id, store, ledger, settings, now=None, anthropic=None, jev=None, buttons=False):
         self.shopper_id, self.store, self.ledger, self.settings = shopper_id, store, ledger, settings
+        self.buttons = buttons  # the storefront: buttons follow its questions, so their text skips the list
         self._now = now
         self.anthropic = anthropic or anthropic_client(settings["anthropic"]["base_url"])
         self.jev = jev or ask_jev
@@ -113,21 +117,23 @@ class Conversation:
         if p["path"] == "handoff":
             return self._handoff(text, p["reason"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
-            return self._finish(text, fixed_text(p["path"], self.orders, self.now(), s["handed_off"]),
-                                p["path"], emit, intent=t["intent"])
+            reply = fixed_text(p["path"], self.orders, self.now(), s["handed_off"], intent=t["intent"],
+                               buttons=self.buttons)
+            return self._finish(text, reply, p["path"], emit, intent=t["intent"])
         return self._run_model(text, p["path"], t, emit)
 
     # ---- endings ----
-    def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False, intent=None):
+    def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False, intent=None,
+                proposed=False):
         s = self.state
         start = time.perf_counter()
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
         if path == "wait":
             self._leave_with_team()
         # an ending: a handoff, the team-has-it line, the signoff, or a reply-model reply
-        # that asks nothing and states no offer this turn (the stray-text reply included)
+        # that asks nothing, states no offer this turn and proposes no answers (the stray-text reply included)
         ending = path in ("handoff", "wait", "signoff") or (
-            path in TOOLS_BY_PATH and not needs_answer and not offer_pending)
+            path in TOOLS_BY_PATH and not needs_answer and not offer_pending and not proposed)
         if ending:
             if not (path in TOOLS_BY_PATH and "anything else" in reply.lower()):
                 reply += "\n" + CLOSING  # the reply model may already have asked: don't ask twice
@@ -250,7 +256,13 @@ class Conversation:
                         offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
-                    return self._finish(text, reply, path, emit, needs, offer, t["intent"])
+                    answers = b.input.get("answers")  # any reply that asks, needed to finish or not
+                    answers = [a.strip() for a in answers if isinstance(a, str) and a.strip()][:3] \
+                        if isinstance(answers, list) else []
+                    # a finished reply with proposed answers asks an optional question: not an ending
+                    out = self._finish(text, reply, path, emit, needs, offer, t["intent"], proposed=bool(answers))
+                    out["answers"] = answers
+                    return out
                 if b.name == "handoff":
                     emit("tool_call", start, name="handoff", source=None, input=b.input, result="handed off")
                     return self._handoff(text, "reply model: " + b.input.get("reason", ""), emit, path, t["intent"])

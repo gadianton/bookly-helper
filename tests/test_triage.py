@@ -1,10 +1,19 @@
 import time
 
-from bookly.triage import ask_haiku, combine, triage
+from bookly.triage import REASONS, _haiku_tool, ask_haiku, combine, jev_questions, triage
 from tests.conftest import FakeReplyModel, answers, fake_triage
 
 IDS = ["BL-10533", "BL-10421", "BL-10406"]
 MIDNIGHT = "BL-10421"
+
+
+def test_reason_choices_reach_jev_and_haiku_described():
+    # Undescribed, Jev read "I didn't like it" as "not said" and the reason question looped.
+    sent = jev_questions(IDS)["reason"].model_dump()["criteria"]
+    assert set(sent) == {"changed mind", "damaged", "defective", "wrong item", "not said"} and all(sent.values())
+    assert "didn't like it" in sent["changed mind"]
+    haiku = _haiku_tool(IDS)["input_schema"]["properties"]["reason"]
+    assert haiku["enum"] == list(REASONS) and "'changed mind' = no longer wants" in haiku["description"]
 
 
 def test_cutoffs_and_effective_order(settings):

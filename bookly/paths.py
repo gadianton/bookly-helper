@@ -3,6 +3,7 @@
 from datetime import date
 
 from bookly.hours import wait_message
+from bookly.taps import choices
 
 WORK = {"order status": "order_status", "return": "return"}
 NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
@@ -67,7 +68,8 @@ def _orders_list(orders: list[dict]) -> str:
     )
 
 
-def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False) -> str:
+def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False) -> str:
+    """buttons: the storefront, where the question's buttons already list the orders or books."""
     if path == "goodbye":
         return ("Thanks for chatting with Bookly. The team still has your question and will reply here."
                 if handed_off else "Thanks for chatting with Bookly. Have a lovely day!")
@@ -83,6 +85,11 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False) -> 
                 "if you'd like to ask them later.")
     if path == "clarify_intent":
         return "Happy to help. Do you need the status of an order, or help with a return?"
+    if path == "clarify_order" and buttons and intent == "return":
+        return fixed_text("clarify_book", shopper_orders, now)
+    if path == "clarify_order" and buttons:
+        shown = choices({"path": path, "intent": "order status"}, shopper_orders, lambda item: False)
+        return "Which order do you mean?" + (" Or type the title of an older order." if len(shown) < len(shopper_orders) else "")
     if path == "clarify_order":
         return "Which order do you mean?\n" + _orders_list(shopper_orders)
     if path == "clarify_book":

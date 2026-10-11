@@ -30,6 +30,8 @@ def valid_pick(pick: dict, orders: list[dict]) -> bool:
 def choices(out: dict, orders: list[dict], returned) -> list[dict]:
     """The buttons for the turn's reply, empty for anything that is not a button-followed question."""
     path, intent = out.get("path"), out.get("intent")
+    if out.get("answers"):  # the reply model's proposed answers: no pick, so a tap is sent as typed
+        return [{"label": a} for a in out["answers"]]
     if out.get("ending"):  # every ending offers the two things the agent does and a way to say no
         return [{"label": b["label"], "pick": dict(b["pick"])} for b in CLOSING_BUTTONS]
     if path == "clarify_intent":

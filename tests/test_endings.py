@@ -47,7 +47,7 @@ def test_every_ending_ends_with_the_closing_question(store, settings):
     convo, (out,) = maya(store, settings, [("where is The Midnight Library?", answers(order=M))],
                         [("reply", {"text": "It was delivered.", "needs_answer": False})])
     assert out == {"reply": "It was delivered.\n" + CLOSING, "path": "order_status",
-                   "tag": "resolved", "intent": "order status", "ending": True}
+                   "tag": "resolved", "intent": "order status", "ending": True, "answers": []}
     assert convo.state["last_reply_kind"] == "closing"
 
 
@@ -58,7 +58,7 @@ def test_questions_get_no_closing_question(store, settings):
     convo, (out,) = maya(store, settings, [("where is The Midnight Library?", answers(order=M))],
                         [("reply", {"text": "Which one do you mean?", "needs_answer": True})])
     assert out == {"reply": "Which one do you mean?", "path": "order_status", "tag": "asked",
-                   "intent": "order status", "ending": False}
+                   "intent": "order status", "ending": False, "answers": []}
     assert choices(out, maya_orders, none_returned) == []
 
     # the clarifying question (R1.5)
@@ -160,7 +160,7 @@ def test_after_handoff_new_requests_reach_the_agent(store, settings):
     n = len(events)
     out = convo.send("where is The Midnight Library?", events.append)
     assert out == {"reply": "On its way.\n" + CLOSING, "path": "order_status", "tag": "handed off",
-                   "intent": "order status", "ending": True}
+                   "intent": "order status", "ending": True, "answers": []}
     assert choices(out, maya_orders, none_returned) == NO_MORE
 
     # a typed off-topic message gets the team-has-it line (R5.3)
