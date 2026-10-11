@@ -14,8 +14,9 @@ from bookly.triage import anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
 MAX_MODEL_CALLS = 8
-# a reply's last sentence when it is a question with "anything else" in it, such as "Anything else I can help with?"
-_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)[^.!?\n]*anything else[^.!?\n]*\?\s*$", re.IGNORECASE)
+# a reply's last sentence when it is a question with "anything else" in it, such as "Anything else I can help with?";
+# a sentence with a comma, colon or dash before "anything else" may carry the answer too, so it stays
+_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)[^.!?\n,;:—–-]*anything else[^.!?\n]*\?\s*$", re.IGNORECASE)
 
 _TOOLS = {
     "lookup_order": {"description": "Look up one of the signed-in shopper's orders by id.",
