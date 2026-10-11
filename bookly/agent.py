@@ -2,6 +2,7 @@
 Each step goes out as an event dict through on_event, for the plain chat and the storefront panel."""
 
 import json
+import re
 import threading
 import time
 from datetime import date, datetime
@@ -13,6 +14,8 @@ from bookly.triage import anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
 MAX_MODEL_CALLS = 8
+# a reply's last sentence when it is a question with "anything else" in it, such as "Anything else I can help with?"
+_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)[^.!?\n]*anything else[^.!?\n]*\?\s*$", re.IGNORECASE)
 
 _TOOLS = {
     "lookup_order": {"description": "Look up one of the signed-in shopper's orders by id.",
@@ -135,8 +138,9 @@ class Conversation:
         ending = path in ("handoff", "wait", "signoff") or (
             path in TOOLS_BY_PATH and not needs_answer and not offer_pending and not proposed)
         if ending:
-            if not (path in TOOLS_BY_PATH and "anything else" in reply.lower()):
-                reply += "\n" + CLOSING  # the reply model may already have asked: don't ask twice
+            if path in TOOLS_BY_PATH:  # the model's own "anything else ...?" goes, so the question matches the buttons
+                reply = _OWN_CLOSING.sub("", reply)
+            reply = reply + "\n" + CLOSING if reply else CLOSING
             s["last_reply_kind"] = "closing"
         elif path == "goodbye":
             s["last_reply_kind"] = None  # the message after a goodbye is read as if no closing question was asked

@@ -114,18 +114,26 @@ def test_typed_decline_and_after_the_goodbye(store, settings):
 
 
 def test_model_closing_line_not_doubled(store, settings):
-    convo, (first, second) = maya(store, settings, [
+    convo, outs = maya(store, settings, [
         ("where is The Midnight Library?", answers(order=M)),
         ("and The Little Prince?", answers(order="BL-10498")),
+        ("and The Little Prince?", answers(order="BL-10498")),
+        ("any more by her?", answers(order=M)),
     ], [
         ("reply", {"text": "Your order has shipped. Anything else I can help with?", "needs_answer": False}),
         ("reply", {"text": "Your order has shipped.", "needs_answer": False}),
+        ("reply", {"text": "It was delivered. Is there anything else you need about it?", "needs_answer": False}),
+        ("reply", {"text": "We don't stock anything else by her.", "needs_answer": False}),
     ])
-    assert first["reply"] == "Your order has shipped. Anything else I can help with?"  # kept exactly (R2.1)
-    assert second["reply"] == "Your order has shipped.\n" + CLOSING  # added once (R2.2)
-    assert first["ending"] is True and second["ending"] is True
-    # the model's own "anything else" question still gets the three closing buttons
-    assert choices(first, store.orders("maya"), lambda item: False) == NO_MORE
+    # the model's own "anything else" question is replaced by the closing line (R2.1)
+    assert outs[0]["reply"] == "Your order has shipped.\n" + CLOSING
+    assert outs[1]["reply"] == "Your order has shipped.\n" + CLOSING  # added once (R2.2)
+    assert outs[2]["reply"] == "It was delivered.\n" + CLOSING
+    # a passing "anything else" that asks nothing stays, and the closing line still follows
+    assert outs[3]["reply"] == "We don't stock anything else by her.\n" + CLOSING
+    for out in outs:
+        assert out["ending"] is True
+        assert choices(out, store.orders("maya"), lambda item: False) == NO_MORE
     assert convo.state["last_reply_kind"] == "closing"
 
 
