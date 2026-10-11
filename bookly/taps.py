@@ -4,13 +4,17 @@ HELP_BUTTONS = [
     {"label": "Where's my order", "pick": {"intent": "order status"}},
     {"label": "Return a book", "pick": {"intent": "return"}},
 ]
+CLOSING_BUTTONS = HELP_BUTTONS + [{"label": "No, that's all", "pick": {"intent": "done"}}]
 
 
 def valid_pick(pick: dict, orders: list[dict]) -> bool:
-    """True only for the three pick shapes naming this shopper's own order and one of its items."""
+    """True only for the pick shapes a button sends: done, a kind of help,
+    a kind of help naming this shopper's own order, or a return naming one of its items."""
     if not isinstance(pick, dict):
         return False
     order = next((o for o in orders if o["id"] == pick.get("order")), None)
+    if pick.get("intent") == "done":
+        return set(pick) == {"intent"}
     if pick.get("intent") == "order status":
         if set(pick) == {"intent"}:
             return True
@@ -28,6 +32,8 @@ def choices(out: dict, orders: list[dict], returned) -> list[dict]:
     path, intent = out.get("path"), out.get("intent")
     if out.get("answers"):  # the reply model's proposed answers: no pick, so a tap is sent as typed
         return [{"label": a} for a in out["answers"]]
+    if out.get("ending"):  # every ending offers the two things the agent does and a way to say no
+        return [{"label": b["label"], "pick": dict(b["pick"])} for b in CLOSING_BUTTONS]
     if path == "clarify_intent":
         return [{"label": b["label"], "pick": dict(b["pick"])} for b in HELP_BUTTONS]
     orders = sorted(orders, key=lambda o: o["order_date"], reverse=True)  # newest first, whatever the caller kept

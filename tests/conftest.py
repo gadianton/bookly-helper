@@ -22,13 +22,14 @@ def settings() -> dict:
 
 
 def answers(intent="order status", intent_conf=1.0, clear=0.9, person=0.0, accept=0.0,
-            angry=0.0, order="can't tell", order_conf=1.0, reason="not said") -> dict:
+            declines=0.0, angry=0.0, order="can't tell", order_conf=1.0, reason="not said") -> dict:
     """Normalized Jev answers with calm defaults; tests override what differs."""
     return {
         "intent": {"pick": intent, "confidence": intent_conf},
         "clear": {"p": clear},
         "person": {"p": person},
         "accept": {"p": accept},
+        "declines": {"p": declines},
         "mood": {"levels": {"calm": 1.0 - angry, "annoyed": 0.0, "angry": angry}, "confidence": 1.0},
         "order": {"pick": order, "confidence": order_conf},
         "reason": {"pick": reason, "confidence": 1.0},

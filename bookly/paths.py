@@ -7,6 +7,7 @@ from bookly.taps import choices
 
 WORK = {"order status": "order_status", "return": "return"}
 NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
+CLOSING = "Is there anything else I can help with?"
 
 
 def new_state() -> dict:
@@ -16,14 +17,28 @@ def new_state() -> dict:
 
 
 def pick_path(t: dict, s: dict) -> dict:
+    if s["handed_off"]:
+        # after a handoff: a decline says goodbye, the team already has anger and person-asks,
+        # and only a new order-status or return request reaches the agent
+        if s["last_reply_kind"] == "closing" and t["declines"] and t["intent"] not in WORK:
+            return {"path": "goodbye", "reason": "declined after the closing question"}
+        if t["person"] or t["angry"]:
+            return {"path": "wait", "reason": "already handed off"}
+        p = _pick(t, s)
+        return p if p["path"] in ("order_status", "return", "clarify_order", "clarify_book") \
+            else {"path": "wait", "reason": "already handed off"}
+    return _pick(t, s)
+
+
+def _pick(t: dict, s: dict) -> dict:
     def go(path, reason):
         return {"path": path, "reason": reason}
 
     last = s["last_reply_kind"]
-    if s["handed_off"]:
-        return go("wait", "already handed off")
     if t["person"] or t["angry"]:
         return go("handoff", "asks for a person" if t["person"] else "angry")
+    if last == "closing" and t["declines"] and t["intent"] not in WORK:
+        return go("goodbye", "declined after the closing question")
     if last == "scope":
         if t["accepts"]:
             return go("handoff", "accepted the offer to pass the question to the team")
@@ -53,8 +68,11 @@ def _orders_list(orders: list[dict]) -> str:
     )
 
 
-def fixed_text(path: str, shopper_orders: list[dict], now, intent=None, buttons=False) -> str:
+def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False) -> str:
     """buttons: the storefront, where the question's buttons already list the orders or books."""
+    if path == "goodbye":
+        return ("Thanks for chatting with Bookly. The team still has your question and will reply here."
+                if handed_off else "Thanks for chatting with Bookly. Have a lovely day!")
     if path == "handoff":
         return f"I've passed this to a member of the Bookly team, who will take it from here. {wait_message(now)}"
     if path == "wait":
@@ -63,7 +81,8 @@ def fixed_text(path: str, shopper_orders: list[dict], now, intent=None, buttons=
         return ("I can help with order status and returns. "
                 "Would you like me to pass your question to a member of our team?")
     if path == "signoff":
-        return "No problem. If you need anything else, our team is here Monday to Friday, 9am to 6pm ET."
+        return ("No problem. Our team is here Monday to Friday, 9am to 6pm ET, "
+                "if you'd like to ask them later.")
     if path == "clarify_intent":
         return "Happy to help. Do you need the status of an order, or help with a return?"
     if path == "clarify_order" and buttons and intent == "return":

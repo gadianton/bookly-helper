@@ -1,7 +1,7 @@
 import time
 
-from bookly.triage import REASONS, _haiku_tool, combine, jev_questions, triage
-from tests.conftest import answers, fake_triage
+from bookly.triage import REASONS, _haiku_tool, ask_haiku, combine, jev_questions, triage
+from tests.conftest import FakeReplyModel, answers, fake_triage
 
 IDS = ["BL-10533", "BL-10421", "BL-10406"]
 MIDNIGHT = "BL-10421"
@@ -32,6 +32,24 @@ def test_cutoffs_and_effective_order(settings):
     assert accepted["accepts"] is True and accepted["effective_order"] == "BL-10533"
     assert run(answers(angry=0.5))["angry"] is True
     assert run(answers(reason="not said"), kept_reason="damaged")["reason"] == "damaged"
+
+
+def test_declines_cutoff(settings):
+    c = settings["cutoffs"]
+
+    def run(raw):
+        return combine(raw, None, None, IDS, c)
+
+    assert run(answers(declines=0.49))["declines"] is False  # R4.1
+    assert run(answers(declines=0.5))["declines"] is True
+
+
+def test_haiku_standby_reads_declines(settings, store):
+    fields = {"intent": "other", "kind_of_help_is_clear": True, "person": False, "accept": False,
+              "mood": "calm", "order": "can't tell", "reason": "not said", "declines": True}
+    raw, _ = ask_haiku("no thanks", [], store.orders("maya"), settings,
+                       client=FakeReplyModel(("triage", fields)))  # R4.2
+    assert combine(raw, None, None, IDS, settings["cutoffs"])["declines"] is True
 
 
 def test_standby_on_jev_timeout_or_missing_key(settings, store, monkeypatch):

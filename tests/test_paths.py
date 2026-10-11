@@ -6,8 +6,8 @@ from tests.conftest import NOW
 M = "BL-10421"
 
 
-def t(intent="order status", person=False, angry=False, accepts=False, order=M, pick=None):
-    return {"intent": intent, "person": person, "angry": angry, "accepts": accepts,
+def t(intent="order status", person=False, angry=False, accepts=False, declines=False, order=M, pick=None):
+    return {"intent": intent, "person": person, "angry": angry, "accepts": accepts, "declines": declines,
             "effective_order": order, "order_pick": pick or order}
 
 
@@ -16,13 +16,22 @@ def t(intent="order status", person=False, angry=False, accepts=False, order=M, 
     [
         (t(person=True), {}, "handoff"),
         (t(intent="return", angry=True), {}, "handoff"),
+        (t(intent="other", person=True, declines=True), {"last_reply_kind": "closing"}, "handoff"),
+        (t(intent="other", declines=True), {"last_reply_kind": "closing"}, "goodbye"),
+        (t(declines=True), {"last_reply_kind": "closing"}, "order_status"),
+        (t(intent="other", declines=True), {"last_reply_kind": "clarify_intent"}, "scope"),
+        (t(intent="other"), {"last_reply_kind": "closing"}, "scope"),
         (t(intent="other", accepts=True), {"last_reply_kind": "scope"}, "handoff"),
         (t(intent="other"), {"last_reply_kind": "scope"}, "signoff"),
         (t(intent="other", accepts=True), {"last_reply_kind": "offer"}, "return"),
         (t(order="can't tell", pick="names an order not in this list"), {"last_reply_kind": "clarify_order"}, "handoff"),
         (t(intent="unclear"), {"last_reply_kind": "clarify_intent"}, "handoff"),
         (t(intent="unclear"), {"last_reply_kind": "model_question", "last_model_intent": "return"}, "return"),
-        (t(), {"handed_off": True}, "wait"),
+        (t(), {"handed_off": True}, "order_status"),
+        (t(intent="other"), {"handed_off": True}, "wait"),
+        (t(intent="return", angry=True), {"handed_off": True}, "wait"),
+        (t(intent="other", person=True, declines=True), {"handed_off": True, "last_reply_kind": "closing"}, "goodbye"),
+        (t(order="can't tell", pick="can't tell"), {"handed_off": True, "last_reply_kind": "clarify_order"}, "wait"),
         (t(intent="other"), {}, "scope"),
         (t(intent="unclear"), {}, "clarify_intent"),
         (t(order="can't tell"), {}, "clarify_order"),

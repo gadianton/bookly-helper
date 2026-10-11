@@ -33,7 +33,7 @@ of the agent, with the step log under it:
 uv run python -m bookly.server
 ```
 
-Test set (31 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
+Test set (33 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
 
 ```
 uv run python -m bookly.evals
@@ -59,7 +59,7 @@ damaged-item claims, so a third goes to a person for review).
   which model answered and why.
   `uv run python -m bookly.server --triage-model haiku` overrides it for one run.
 - `[cutoffs]`: how confident Jev must be before an answer counts. Tuned on the test set: `clear = 0.4`, everything
-  else (`intent`, `order`, `person`, `accept`, `angry`) `0.5`.
+  else (`intent`, `order`, `person`, `accept`, `angry`, `declines`) `0.5`.
 
 On the test set, Jev picks the right kind of help for 94% of messages at a median of 176 ms; Haiku 96% at 1,009 ms.
 About as accurate, so Jev is the default for speed and cost.

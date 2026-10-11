@@ -8,6 +8,7 @@ clear = 0.4
 order = 0.5
 person = 0.5
 accept = 0.5
+declines = 0.5
 angry = 0.5
 
 [anthropic]

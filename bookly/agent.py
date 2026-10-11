@@ -2,17 +2,21 @@
 Each step goes out as an event dict through on_event, for the plain chat and the storefront panel."""
 
 import json
+import re
 import threading
 import time
 from datetime import date, datetime
 from pathlib import Path
 
-from bookly.hours import ET
-from bookly.paths import fixed_text, new_state, pick_path, tag_for
+from bookly.hours import ET, wait_message
+from bookly.paths import CLOSING, fixed_text, new_state, pick_path, tag_for
 from bookly.triage import anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
 MAX_MODEL_CALLS = 8
+# a reply's last sentence when it is a question with "anything else" in it, such as "Anything else I can help with?";
+# a sentence with a comma, colon or dash before "anything else" may carry the answer too, so it stays
+_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)[^.!?\n,;:—–-]*anything else[^.!?\n]*\?\s*$", re.IGNORECASE)
 
 _TOOLS = {
     "lookup_order": {"description": "Look up one of the signed-in shopper's orders by id.",
@@ -76,11 +80,6 @@ class Conversation:
         emit = lambda step, start, **kw: on_event({"step": step, "ms": _ms(start), **kw})
         s = self.state
 
-        if s["handed_off"]:  # before every path rule: no triage, no model, no tap
-            start = time.perf_counter()
-            emit("path", start, path="wait", reason="already handed off")
-            return self._finish(text, fixed_text("wait", self.orders, self.now()), "wait", emit)
-
         if pick is None:
             start = time.perf_counter()
             haiku = lambda *a: ask_haiku(*a, client=self.anthropic)
@@ -89,12 +88,13 @@ class Conversation:
             if t["standby"]:
                 emit("standby", start, why=t["standby"], detail=t["standby_why"])
             emit("triage", start, model=t["model"], answers=t["raw"], model_ms=round(t["ms"], 1),
-                 result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts", "mood", "angry")})
+                 result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts",
+                                          "declines", "mood", "angry")})
         else:  # a tap settles what it names: no Jev, no standby, no words so no mood or person to read
             start = time.perf_counter()
             t = {"intent": pick["intent"], "order_pick": pick.get("order") or "can't tell",
                  "effective_order": pick.get("order") or "can't tell", "person": False, "accepts": False,
-                 "mood": "calm", "angry": False, "reason": s["kept_reason"] or "not said",
+                 "declines": False, "mood": "calm", "angry": False, "reason": s["kept_reason"] or "not said",
                  "raw": {"reason": {"pick": "not said"}}}
             emit("tap", start, intent=t["intent"], order=pick.get("order"), item=pick.get("item"))
         if t["effective_order"] in {o["id"] for o in self.orders}:
@@ -108,7 +108,10 @@ class Conversation:
             s["kept_reason"], s["reason_item"] = t["raw"]["reason"]["pick"], None
 
         start = time.perf_counter()
-        if pick is not None and not pick.get("order"):
+        if pick is not None and pick["intent"] == "done":
+            # "No, that's all": the tap settles the goodbye, at any point in the chat
+            p = {"path": "goodbye", "reason": "done tapped"}
+        elif pick is not None and not pick.get("order"):
             # a kind-of-help tap always asks which order or book, remembered order or not
             p = {"path": "clarify_book" if pick["intent"] == "return" else "clarify_order",
                  "reason": "kind of help tapped"}
@@ -118,29 +121,55 @@ class Conversation:
         if p["path"] == "handoff":
             return self._handoff(text, p["reason"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
-            reply = fixed_text(p["path"], self.orders, self.now(), intent=t["intent"], buttons=self.buttons)
+            reply = fixed_text(p["path"], self.orders, self.now(), s["handed_off"], intent=t["intent"],
+                               buttons=self.buttons)
             return self._finish(text, reply, p["path"], emit, intent=t["intent"])
         return self._run_model(text, p["path"], t, emit)
 
     # ---- endings ----
-    def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False, intent=None):
+    def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False, intent=None,
+                proposed=False):
         s = self.state
         start = time.perf_counter()
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
-        if path in ("scope", "signoff", "clarify_intent", "clarify_order", "clarify_book"):
-            s["last_reply_kind"] = "clarify_order" if path == "clarify_book" else (
-                path if path in ("scope", "clarify_intent", "clarify_order") else None)
+        if path == "wait":
+            self._leave_with_team()
+        # an ending: a handoff, the team-has-it line, the signoff, or a reply-model reply
+        # that asks nothing, states no offer this turn and proposes no answers (the stray-text reply included)
+        ending = path in ("handoff", "wait", "signoff") or (
+            path in TOOLS_BY_PATH and not needs_answer and not offer_pending and not proposed)
+        if ending:
+            if path in TOOLS_BY_PATH:  # the model's own "anything else ...?" goes, so the question matches the buttons
+                reply = _OWN_CLOSING.sub("", reply)
+            reply = reply + "\n" + CLOSING if reply else CLOSING
+            s["last_reply_kind"] = "closing"
+        elif path == "goodbye":
+            s["last_reply_kind"] = None  # the message after a goodbye is read as if no closing question was asked
+        elif path in ("scope", "clarify_intent", "clarify_order", "clarify_book"):
+            s["last_reply_kind"] = "clarify_order" if path == "clarify_book" else path
         self.history += [{"role": "customer", "text": text}, {"role": "agent", "text": reply}]
         emit("reply", start, text=reply)
         emit("tag", start, tag=s["tag"])
-        return {"reply": reply, "path": path, "tag": s["tag"], "intent": intent}
+        return {"reply": reply, "path": path, "tag": s["tag"], "intent": intent, "ending": ending}
+
+    def _leave_with_team(self):
+        # the reason, tapped book and pending offers stay with what the team has: a later return asks for
+        # its own, and a later yes can't carry out an offer the handoff reply never showed
+        self.state["kept_reason"] = self.state["reason_item"] = self.state["book"] = None
+        with self.ledger.lock:
+            self.ledger.offers = {k: o for k, o in self.ledger.offers.items() if o["chat"] is not self}
 
     def _handoff(self, text, reason, emit, path="handoff", intent=None):
         start = time.perf_counter()
+        already = self.state["handed_off"]
         self.state["handed_off"] = True
+        self._leave_with_team()
         self.handoff_record = {"reason": reason, "at": self.now().isoformat()}
         emit("handoff", start, reason=reason)
-        return self._finish(text, fixed_text("handoff", self.orders, self.now()), path, emit, intent=intent)
+        # a handoff inside a later order or return turn adds to what the team already has
+        reply = (f"I've added this to what the team already has. {wait_message(self.now())}" if already
+                 else fixed_text("handoff", self.orders, self.now()))
+        return self._finish(text, reply, path, emit, intent=intent)
 
     # ---- the reply model ----
     def _load_profile(self, emit):
@@ -235,10 +264,12 @@ class Conversation:
                         offer = any(o["chat"] is self and o["turn"] == self.turn for o in self.ledger.offers.values())
                     self.state["last_reply_kind"] = "offer" if offer else ("model_question" if needs else "model")
                     self.state["last_model_intent"] = "order status" if path == "order_status" else "return"
-                    out = self._finish(text, reply, path, emit, needs, offer, t["intent"])
                     answers = b.input.get("answers")  # any reply that asks, needed to finish or not
-                    out["answers"] = [a.strip() for a in answers if isinstance(a, str) and a.strip()][:3] \
+                    answers = [a.strip() for a in answers if isinstance(a, str) and a.strip()][:3] \
                         if isinstance(answers, list) else []
+                    # a finished reply with proposed answers asks an optional question: not an ending
+                    out = self._finish(text, reply, path, emit, needs, offer, t["intent"], proposed=bool(answers))
+                    out["answers"] = answers
                     return out
                 if b.name == "handoff":
                     emit("tool_call", start, name="handoff", source=None, input=b.input, result="handed off")
