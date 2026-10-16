@@ -93,28 +93,34 @@
   /* the diagram view: Look B, fixed light colours in both colour settings */
   #arch-view { --ink: #12141A; --muted: #5B6170; --page: #FFFFFF; --surface: #F3F4F7; --line: #ECEEF3; --line-strong: #DDE0E7; --accent: #2344C9; --accent-tint: #EEF2FF; --fail: #C13A2B; background: var(--page); color: var(--ink); font: 13px/18px "Manrope", system-ui, sans-serif; }
   #arch { position: relative; width: 1056px; height: 760px; transform-origin: top left; }
-  .arch-title { position: absolute; left: 64px; top: 36px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
-  #last-turn { position: absolute; left: 64px; top: 70px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #turn-failed { position: absolute; left: 64px; top: 94px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .arch-title { position: absolute; left: 64px; top: 28px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
+  #last-turn { position: absolute; left: 64px; top: 62px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #turn-failed { position: absolute; left: 64px; top: 86px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #tools-label { position: absolute; left: 848px; top: 116px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
+  /* the Bookly server frame around every box right of Storefront; endpoint labels sit across
+     its left edge where the page's arrows enter it, API captions just outside their boxes */
+  .frame { position: absolute; left: 236px; top: 111px; width: 784px; height: 463px; box-sizing: border-box; border: 1.5px dashed #B8BDC9; border-radius: 16px; pointer-events: none; }
+  .frame-title { position: absolute; left: 252px; top: 104px; padding: 0 6px; background: #FFFFFF; font-size: 12px; line-height: 16px; font-weight: 700; color: var(--muted); }
+  .endpoint { position: absolute; padding: 0 4px; white-space: nowrap; background: #FFFFFF; font: 11px/16px ui-monospace, monospace; color: var(--ink); }
+  .api { position: absolute; white-space: nowrap; font-size: 11px; line-height: 16px; color: var(--muted); }
   .box { position: absolute; width: 148px; padding: 10px 12px; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
   .box-title { font-weight: 700; }
   /* a box holds whole rows and clips the rest: 4 rows of 18 px in the 104/96 px boxes
      (3 under the title), 3 in the 88 px boxes (2 under the title); the clamp draws the
      ellipsis on the last row shown, and the full line stays in the element */
   .box-lines { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--rows, 3); max-height: calc(var(--rows, 3) * 18px); }
-  .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --rows: 2; }
+  .box[data-box="start"], .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --rows: 2; }
   .box[data-look="lit"] { background: #FFFFFF; border: 2px solid var(--ink); box-shadow: 0 0 0 4px var(--accent-tint); color: var(--ink); }
   .box[data-look="skipped"] { background: #FFFFFF; border: 2px dashed var(--muted); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
   .box[data-look="idle"] { background: var(--surface); border: 2px dashed var(--line-strong); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
-  /* columns (spec R10): Storefront 0, Jev and stand-in 1, rules 2, fixed/model/handoff 3, data 4;
+  /* columns (spec R10): Storefront 0, Start chat, Jev and stand-in 1, rules 2, fixed/model/handoff 3, data 4;
      an arrow carries the column of the box it points into */
   .box[data-box="storefront"] { --col: 0; }
-  .box[data-box="jev"], .box[data-box="standin"] { --col: 1; }
+  .box[data-box="start"], .box[data-box="jev"], .box[data-box="standin"] { --col: 1; }
   .box[data-box="rules"] { --col: 2; }
   .box[data-box="fixed"], .box[data-box="model"], .box[data-box="handoff"] { --col: 3; }
   .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --col: 4; }
-  [data-arrow="storefront-jev"], [data-arrow="jev-standin"] { --col: 1; }
+  [data-arrow="storefront-start"], [data-arrow="storefront-jev"], [data-arrow="jev-standin"] { --col: 1; }
   [data-arrow="jev-rules"] { --col: 2; }
   [data-arrow="rules-model"], [data-arrow="rules-fixed"], [data-arrow="rules-handoff"] { --col: 3; }
   [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"],
@@ -244,7 +250,15 @@
       <div id="last-turn">No turn yet · send a message in the chat</div>
       <div id="turn-failed"></div>
       <div id="tools-label">TOOLS</div>
+      <div class="frame"></div>
+      <div class="frame-title">Bookly server</div>
+      <div class="endpoint" style="right:804px;top:148px">POST /conversation · start chat</div>
+      <div class="endpoint" style="left:236px;top:246px;transform:translateX(-50%)">POST /chat · each message</div>
+      <div class="api" style="right:648px;top:246px">TypeSafe API</div>
+      <div class="api" style="right:256px;top:246px">Anthropic Messages API</div>
+      <div class="api" style="right:648px;top:546px">Anthropic Messages API</div>
 
+      <svg data-arrow="storefront-start" data-to="start" style="left:96px;top:168px" width="164" height="100" viewBox="0 0 164 100"><path class="line" d="M4 100 V4"/><path class="line" d="M4 4 H156"/><path class="head" d="M156 0 L164 4 L156 8 Z"/></svg>
       <svg data-arrow="storefront-jev" data-to="jev" style="left:212px;top:316px" width="47" height="8" viewBox="0 0 47 8"><path class="line" d="M0 4 H39"/><path class="head" d="M39 0 L47 4 L39 8 Z"/></svg>
       <svg data-arrow="jev-rules" data-to="rules" style="left:408px;top:316px" width="47" height="8" viewBox="0 0 47 8"><path class="line" d="M0 4 H39"/><path class="head" d="M39 0 L47 4 L39 8 Z"/></svg>
       <svg data-arrow="rules-model" data-to="model" style="left:604px;top:316px" width="47" height="8" viewBox="0 0 47 8"><path class="line" d="M0 4 H39"/><path class="head" d="M39 0 L47 4 L39 8 Z"/></svg>
@@ -262,6 +276,10 @@
       <div class="box" data-box="storefront" data-look="idle" style="left:64px;top:268px;height:104px">
         <div class="box-title">Storefront</div>
         <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="start" data-look="idle" style="left:260px;top:128px;height:88px">
+        <div class="box-title">Start chat</div>
+        <div class="box-lines">new chat id<br>loads orders</div>
       </div>
       <div class="box" data-box="jev" data-look="idle" style="left:260px;top:268px;height:104px">
         <div class="box-title">Jev triage</div>
@@ -525,7 +543,7 @@ function resetBoxes() {
     b.querySelector('.box-title').textContent = b.dataset.title;
     b.querySelector('.box-lines').textContent = b.dataset.box === 'standin' ? 'not needed' : 'idle';
   }
-  paintArrows();
+  setBox('start', 'idle', ['new chat id', 'loads orders']);  // also repaints the arrows
   $('#last-turn').textContent = 'No turn yet · send a message in the chat';
   $('#turn-failed').textContent = '';
 }
@@ -639,8 +657,10 @@ async function startConversation() {
   const shopper = $('#shopper').value, at = switches;
   const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
   const c = await r.json();
+  if (!r.ok) throw new Error(`conversation request failed: ${r.status}`);  // Start chat stays idle; the next send retries
   if (at !== switches) return;  // the shopper switched again while this loaded: the later one shows
   conversationId = c.conversation_id;
+  setBox('start', 'lit', [c.name, `${c.orders.length} order${c.orders.length === 1 ? '' : 's'} loaded`]);
   $('#msgs').textContent = '';
   $('#panel').textContent = '';
   add($('#panel'), 'ev ev-turn', `new conversation: ${c.name}`);
