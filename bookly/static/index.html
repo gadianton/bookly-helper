@@ -100,7 +100,7 @@
   #orders small { color: var(--muted); }
   /* the diagram view: Look B, fixed light colours in both colour settings */
   #arch-view { --ink: #12141A; --muted: #5B6170; --page: #FFFFFF; --surface: #F3F4F7; --line: #ECEEF3; --line-strong: #DDE0E7; --accent: #2344C9; --accent-tint: #EEF2FF; --fail: #C13A2B; background: var(--page); color: var(--ink); font: 13px/18px "Manrope", system-ui, sans-serif; }
-  #arch { position: relative; width: 1056px; height: 760px; transform-origin: top left; }
+  #arch { position: relative; width: 1056px; height: 824px; transform-origin: top left; }
   .arch-title { position: absolute; left: 64px; top: 28px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
   #last-turn { position: absolute; left: 64px; top: 62px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #turn-failed { position: absolute; left: 64px; top: 86px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -150,7 +150,16 @@
   [data-arrow].ink .line, [data-arrow].ink .head { transition-duration: 200ms;
                                                    transition-delay: calc(100ms + 40ms * var(--col)); }
   .standin-label { position: absolute; left: 346px; top: 404px; width: 96px; font-size: 12px; line-height: 16px; color: var(--muted); }
-  #panel { position: absolute; left: 64px; top: 588px; width: 932px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
+  /* the answers card (spec R2): left of the step log in the bottom strip, one column of the eight rows,
+     as tall as the title and eight 18 px rows need (12 + 18 + 8 x 18 + 12 + 2 = 188 px); a row keeps
+     one line and ends in an ellipsis when too long, its full text staying in the element */
+  #answers { position: absolute; left: 64px; top: 588px; width: 324px; height: 188px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; }
+  .answers-title { font-weight: 700; }
+  .answers-note { color: var(--muted); }
+  .answers-rows { display: grid; grid-template-rows: repeat(8, 18px); }
+  .answer { line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .answer.overruled { color: var(--muted); }  /* a row the code overruled (spec R4) */
+  #panel { position: absolute; left: 400px; top: 588px; width: 596px; height: 188px; padding:12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   #panel .ev { white-space: pre-wrap; }
   #panel .ev:last-child { border-bottom: 0; }
@@ -325,6 +334,10 @@
         <div class="box-lines">idle</div>
       </div>
 
+      <section id="answers" aria-label="Jev decisions">
+        <div class="answers-title">Jev decisions</div>
+        <div class="answers-note">No message yet</div>
+      </section>
       <aside id="panel" aria-label="Step log"></aside>
     </div>
   </div>
@@ -576,6 +589,7 @@ function resetBoxes() {
 
 function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn starts when its message is sent
   resetBoxes();
+  showAnswersNote('No Jev answers this turn');  // until a triage or tap event arrives (spec R7)
   if (msg.tap) {
     setBox('storefront', 'lit', [`tapped “${msg.tap}”`]);
     $('#last-turn').textContent = `Last turn: tapped “${msg.tap}” · lit until the next message`;
@@ -629,6 +643,84 @@ function toolLine(e) {  // the spec's line form per tool and result; a part the 
   return `${e.name} → ${r.result ?? JSON.stringify(e.result)}`;  // any other tool
 }
 
+function answerRows(e) {  // a triage event -> the card's eight rows (spec R3, R4, R5): plain words, how sure Jev is
+  const a = e.answers || {};
+  const r = e.result || {};
+  const pct = x => e.model === 'haiku' || x == null ? '' : ` ${Math.round(100 * Number(x))}%`;  // Haiku: no percents (spec R6)
+  const yesno = (label, p) => `${label}: ${p >= 0.5 ? 'yes' : 'no'}${pct(p >= 0.5 ? p : 1 - p)}`;
+  const pick = (label, o, word) => `${label}: ${word || o.pick}${pct(o.confidence)}`;
+  const levels = Object.entries(a.mood.levels);  // the highest level wins, ties to the first (as triage.py's combine)
+  const mood = levels.reduce(([ml, mp], [l, p]) => p > mp ? [l, p] : [ml, mp]);
+  const row = (label, text, overruled) => ({label, text, overruled: !!overruled});
+  const isOrder = s => !!s && s !== "can't tell" && s !== 'names an order not in this list';
+
+  const wants = a.intent.pick !== r.intent && r.intent
+    ? row('Wants', `${pick('Wants', a.intent)} → ${r.intent}`, true)  // the code's intent won (spec R4)
+    : row('Wants', pick('Wants', a.intent));
+
+  const eff = r.effective_order;
+  const orderBase = pick('Order', a.order,
+                         a.order.pick === 'names an order not in this list' ? 'not one of theirs' : null);
+  let order = row('Order', orderBase);
+  if (a.order.pick === "can't tell" && isOrder(eff))
+    order = row('Order', `${orderBase} → ${eff} (earlier)`);  // filled from earlier (spec R5)
+  else if (isOrder(a.order.pick) && a.order.pick !== eff)
+    order = row('Order', `${orderBase} → ${isOrder(eff) ? `${eff} (earlier)` : eff}`, true);  // the pick was dropped (spec R4)
+  else if (a.order.pick === 'names an order not in this list' && isOrder(eff))
+    order = row('Order', `${orderBase} → ${eff} (earlier)`, true);
+
+  let reason = row('Return reason', pick('Return reason', a.reason));
+  if (a.reason.pick === 'not said' && r.reason && r.reason !== 'not said')
+    reason = row('Return reason', `${pick('Return reason', a.reason)} → ${r.reason} (earlier)`);  // filled from earlier (spec R5)
+
+  let moodRow = row('Mood', `Mood: ${mood[0]}${pct(mood[1])}`);
+  if (r.angry !== undefined && r.angry !== (mood[0] === 'angry'))
+    moodRow = row('Mood', `Mood: ${mood[0]}${pct(mood[1])} → ${r.angry ? 'angry' : 'not angry'}`, true);
+
+  const flipped = (label, p, res) => {  // a yes/no row the code took the other way (spec R4)
+    const word = p >= 0.5 ? 'yes' : 'no';
+    return res !== undefined && word !== (res ? 'yes' : 'no')
+      ? row(label, `${yesno(label, p)} → ${res ? 'yes' : 'no'}`, true)
+      : row(label, yesno(label, p));
+  };
+  const clear = a.clear.p < 0.5 && r.intent && r.intent !== 'unclear'  // "no", but the code went ahead (spec R4)
+    ? row('Clear what they want', `${yesno('Clear what they want', a.clear.p)} → yes`, true)
+    : row('Clear what they want', yesno('Clear what they want', a.clear.p));
+  return [wants, order, reason, moodRow, clear,
+          flipped('Asks for a person', a.person.p, r.person),
+          flipped('Takes the offer', a.accept.p, r.accepts),
+          flipped("Says that's all", a.declines.p, r.declines)];
+}
+
+function answersCard(title, body) {  // the card's title and either the rows or the note (spec R2)
+  const card = $('#answers');
+  card.textContent = '';
+  const el = document.createElement('div');
+  el.className = 'answers-title';
+  el.textContent = title;
+  card.append(el, body);
+  return card;
+}
+
+function showAnswers(e) {  // draws the card's title and its eight rows
+  const rows = document.createElement('div');
+  rows.className = 'answers-rows';
+  for (const r of answerRows(e)) {
+    const el = document.createElement('div');
+    el.className = r.overruled ? 'answer overruled' : 'answer';
+    el.textContent = r.text;  // the whole line stays in the element when the card ellipsises it
+    rows.appendChild(el);
+  }
+  answersCard(`${e.model === 'haiku' ? 'Haiku' : 'Jev'} decisions`, rows);  // whose answers these are (spec R6)
+}
+
+function showAnswersNote(text) {  // the title and a note, no rows
+  const note = document.createElement('div');
+  note.className = 'answers-note';
+  note.textContent = text;
+  answersCard('Jev decisions', note);
+}
+
 function routeBox(e) {  // the events that light boxes; reply, tag and the rest stay step-log only
   if (e.step === 'standby') {
     turnEvents.standby = true;
@@ -636,6 +728,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
   } else if (e.step === 'tap') {
     turnEvents.tap = true;
     setBox('jev', 'skipped', ['skipped: tap']);
+    showAnswersNote('No Jev call: the tap settled it');  // spec R7
   } else if (e.step === 'triage') {
     turnEvents.triage = true;
     const r = e.result, a = e.answers || {};
@@ -643,12 +736,12 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
     const when = `${order} · ${fmtTime(e.model_ms)}`;
     if (e.model === 'jev') {
       const conf = a.intent && a.intent.confidence != null ? ` · ${Number(a.intent.confidence).toFixed(2)}` : '';
-      const mood = [r.person && 'person', r.angry && 'upset'].filter(Boolean).join(' · ');
-      setBox('jev', 'lit', [r.intent + conf, when, ...(mood ? [mood] : [])]);
+      setBox('jev', 'lit', ['8 answers', `in one call · ${fmtTime(e.model_ms)}`, r.intent + conf]);  // spec R1
     } else {
       if (!turnEvents.standby) setBox('jev', 'skipped', ['off: Haiku is triage']);
       setBox('standin', 'lit', [r.intent, when]);
     }
+    showAnswers(e);  // the card holds the turn's eight answers (spec R2)
   } else if (e.step === 'path') {
     turnEvents.path = e.path;
     setBox('rules', 'lit', [`${e.path}: ${shortReason(e.reason)}`]);
@@ -680,6 +773,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
 
 async function startConversation() {
   resetBoxes();  // loading a conversation puts every box back to idle (page load, shopper switch, retry load)
+  showAnswersNote('No message yet');  // the card starts each conversation empty (spec R2), before the load so no old answers linger
   const shopper = $('#shopper').value, at = switches;
   const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
   const c = await r.json();
@@ -804,14 +898,14 @@ async function send(text, at, n, pick) {
 }
 
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
-function fit() {  // scale the fixed 1056x760 drawing to the window, keeping the 412 px chat strip clear
+function fit() {  // scale the fixed 1056x824 drawing to the window, keeping the 412 px chat strip clear
   const w = innerWidth, hh = $('main').offsetTop;  // everything above the views: the header and any strip over it
   document.documentElement.style.setProperty('--header-h', hh + 'px');  // the white view fills below the header
-  const s = w >= 1000 ? Math.min(1, (w - 412) / 1056, (innerHeight - hh) / 760)
+  const s = w >= 1000 ? Math.min(1, (w - 412) / 1056, (innerHeight - hh) / 824)
                       : Math.min(1, w / 1056);
   $('#arch').style.transform = `scale(${s})`;
   $('#arch-view').style.width = 1056 * s + 'px';  // the view's box is the scaled drawing, so the page doesn't scroll
-  $('#arch-view').style.height = 760 * s + 'px';
+  $('#arch-view').style.height = 824 * s + 'px';
 }
 addEventListener('resize', fit);
 function setView(name) {
