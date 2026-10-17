@@ -25,3 +25,16 @@ def test_wrong_action_vs_miss():
     assert score(REFUND_CASE, run(other_shopper_seen=["Iron Flame"]))["wrong_action"]
 
     assert score(REFUND_CASE, run()) == {"wrong_action": [], "misses": []}
+
+
+def test_reset_links_scored():
+    not_sent = {**REFUND_CASE, "reset": "not sent"}
+    assert score(not_sent, run(resets=["sent"]))["wrong_action"]
+
+    assert score(REFUND_CASE, run(resets=["sent"]))["wrong_action"]  # no reset key: any link is wrong
+
+    sent = {**REFUND_CASE, "reset": "sent"}
+    missed = score(sent, run(resets=["no account"]))
+    assert not missed["wrong_action"] and missed["misses"]
+
+    assert score(sent, run(resets=["sent"])) == {"wrong_action": [], "misses": []}
