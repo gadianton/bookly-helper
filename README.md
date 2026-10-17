@@ -1,8 +1,8 @@
 # Bookly support agent
 
-A customer-support agent prototype for Bookly, a fictional online bookstore. It handles two things in depth,
-order status and returns/refunds, answers general return-rule and shipping-cost questions from the store's
-published facts, and hands everything else to a person or answers with a polite scope reply.
+A customer-support agent prototype for Bookly, a fictional online bookstore. It handles three things in depth,
+order status, returns/refunds and password resets, answers general return-rule and shipping-cost questions from
+the store's published facts, and hands everything else to a person or answers with a polite scope reply.
 
 The idea is "think fast, act right":
 - **Fast:** every typed message is triaged by Jev (TypeSafe AI's System One model) in about 0.2 s; a storefront tap skips it, except an answer the reply model proposed, which is sent as if typed.
@@ -13,28 +13,32 @@ The idea is "think fast, act right":
 
 ## Run it
 
-Needs [uv](https://docs.astral.sh/uv/) and two API keys.
+Needs [uv](https://docs.astral.sh/uv/) and the Anthropic key. The TypeSafe key is recommended but optional.
 
 ```
 uv sync
 export ANTHROPIC_API_KEY=...      # console.anthropic.com
-export TYPESAFE_API_KEY=...       # TypeSafe AI, for Jev
+export TYPESAFE_API_KEY=...       # TypeSafe AI, for Jev; optional, recommended
 ```
 
-Plain chat in the terminal (type messages, `quit` to end). Each reply is followed by the triage, tool calls and timings:
+Without the TypeSafe key, Haiku triages every message, about 0.8 s slower and about as accurately.
+
+Plain chat in the terminal (type messages, `quit` to end; `--shopper guest` chats as the signed-out visitor).
+Each reply is followed by the triage, tool calls and timings:
 
 ```
 uv run python -m bookly.chat --shopper maya
 ```
 
 Storefront with the pop-up chat, at http://127.0.0.1:8000 (or the next free port when 8000 is taken; the server prints its address); the header's "How it works" switch shows the live diagram
-of the agent, with Jev's answers and the step log under it:
+of the agent, with Jev's answers and the step log under it. Beside the "Live architecture" title sits the "Simulate Jev outage"
+switch: checked, it makes the page's typed messages fail over to Haiku until it is switched off or the page is reloaded:
 
 ```
 uv run python -m bookly.server
 ```
 
-Test set (40 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
+Test set (46 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
 
 ```
 uv run python -m bookly.evals
@@ -50,7 +54,8 @@ uv run python -m bookly.jev_check
 Unit tests: `uv run pytest`.
 
 Two demo shoppers are signed in by name: `maya` (several orders, the main demo) and `riley` (2 recent
-damaged-item claims, so a third goes to a person for review).
+damaged-item claims, so a third goes to a person for review). A third, `guest`, is the signed-out visitor:
+no account, no email on file, no orders — they can still ask for a password reset link by typing an email address.
 
 ## Triage model setting
 
@@ -62,7 +67,7 @@ damaged-item claims, so a third goes to a person for review).
 - `[cutoffs]`: how confident Jev must be before an answer counts. Tuned on the test set: `clear = 0.4`, everything
   else (`intent`, `order`, `person`, `accept`, `angry`, `declines`) `0.5`.
 
-On the test set, Jev picks the right kind of help for 94% of messages at a median of 176 ms; Haiku 96% at 1,009 ms.
+On the test set, Jev picks the right kind of help for 95% of messages at a median of 117 ms; Haiku 93% at 1,123 ms.
 About as accurate, so Jev is the default for speed and cost.
 Sonnet and Opus were measured too. [docs/benchmark.md](docs/benchmark.md) has the full comparison of accuracy,
 speed and cost, and every message each model got wrong.
@@ -92,10 +97,14 @@ The return policy is modelled on Barnes & Noble's (`bookly/policy.toml`). Detail
 
 ## Known gaps
 
-The last test-set run passed all 31 cases with no wrong action and no misses. Gaps seen around it:
+The last test-set run passed 38 of 39 cases with no wrong action and one miss (a status case ended with a
+question instead of a resolution). Gaps seen around it:
 
 - **Jev occasionally doesn't answer.** About 1 message in 49 during the test-set runs (reported as HTTP 503 "model is
   unavailable"); Haiku stands in, about 0.8 s slower.
 - **"I want to talk to a human" is triaged as unclear, not other**, by Jev and Haiku. Harmless: the separate
   asks-for-a-person check hands off first.
 - The handoff wait message knows Bookly's hours but not public holidays.
+- **The browser can tell whether a signed-out reset email has an account.** The step log and the "How it works" view
+  show the reset link's result (sent or no account), kept on purpose so the demo shows the link goes only to a real
+  account. A real product would keep that result in server-side logs only.

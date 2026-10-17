@@ -24,7 +24,7 @@ from bookly.settings import load_settings
 from bookly.store import Store
 from bookly.taps import choices, valid_pick
 
-SHOPPERS = ("maya", "riley")
+SHOPPERS = ("maya", "riley", "guest")
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 settings = load_settings()
@@ -42,6 +42,7 @@ class ChatIn(BaseModel):
     conversation_id: str | None = None
     text: str
     pick: Any = None  # any JSON, so a pick of the wrong type gets valid_pick's 400, not a 422
+    jev_outage: bool = False
 
 
 @app.get("/")
@@ -79,7 +80,7 @@ def chat(body: ChatIn):
     def run():
         try:
             with convo.lock:  # two turns of one chat at once would share its state; other chats run on
-                out = convo.send(body.text, events.put, pick=body.pick)
+                out = convo.send(body.text, events.put, pick=body.pick, jev_outage=body.jev_outage)
             buttons = choices(out, convo.orders,
                               lambda item: ledger.returned(convo.shopper_id, item))
             if buttons:

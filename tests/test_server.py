@@ -13,6 +13,7 @@ import bookly.server as server
 from bookly.agent import Conversation
 from bookly.returns import Ledger
 from tests.conftest import FakeReplyModel, answers, fake_triage
+from tests.test_jev_outage import HAIKU
 
 
 @pytest.fixture
@@ -49,6 +50,7 @@ def test_refused_pick_leaves_the_conversation_untouched(placed):
 @pytest.mark.parametrize("shopper,pick,detail", [
     ("maya", "Return a book", "bad pick"),  # not an object: still the 400 a bad pick gets
     ("maya", ["return"], "bad pick"),
+    ("maya", {"intent": "password reset", "order": "BL-10533"}, "bad pick"),  # reset takes no order
     ("nobody", {"intent": "return"}, "unknown shopper"),  # not a server error from the order lookup
 ])
 def test_malformed_pick_or_unknown_shopper_gets_400(shopper, pick, detail):
@@ -66,7 +68,7 @@ def _stream_events(response) -> list[dict]:
     return asyncio.run(drain())
 
 
-def test_ending_stream_holds_the_three_buttons(placed):
+def test_ending_stream_holds_the_four_buttons(placed):
     cid, convo, jev_calls = placed
     convo.jev = fake_triage(answers(intent="unclear"))  # twice unclear: the second miss hands off
     events = []
@@ -78,6 +80,7 @@ def test_ending_stream_holds_the_three_buttons(placed):
     assert next(e for e in events if e["step"] == "choices")["choices"] == [
         {"label": "Where's my order", "pick": {"intent": "order status"}},
         {"label": "Return a book", "pick": {"intent": "return"}},
+        {"label": "Reset my password", "pick": {"intent": "password reset"}},
         {"label": "No, that's all", "pick": {"intent": "done"}},
     ]
 
@@ -88,6 +91,27 @@ def test_done_pick_accepted_by_chat(placed):
                          pick={"intent": "done"})
     events = _stream_events(server.chat(body))
     assert events[-1]["step"] == "done" and events[-1]["path"] == "goodbye"
+
+
+def test_chat_forwards_outage_flag_to_the_turn(placed):
+    cid, convo, jev_calls = placed
+    convo.anthropic = FakeReplyModel(("triage", HAIKU), ("reply", {"text": "Done.", "needs_answer": False}))
+    body = server.ChatIn(shopper="maya", conversation_id=cid, text="where's my order?", jev_outage=True)
+    events = _stream_events(server.chat(body))
+    standby = next(e for e in events if e["step"] == "standby")
+    tri = next(e for e in events if e["step"] == "triage")
+    assert jev_calls == []
+    assert (standby["why"], standby["detail"]) == ("Jev unavailable", "simulated outage")
+    assert tri["model"] == "haiku"
+
+
+def test_chat_without_outage_field_calls_jev_as_before(placed):
+    cid, convo, jev_calls = placed
+    body = server.ChatIn(shopper="maya", conversation_id=cid, text="where's my order?")
+    events = _stream_events(server.chat(body))
+    assert len(jev_calls) == 1
+    assert not any(e["step"] == "standby" for e in events)
+    assert events[-1]["step"] == "done"
 
 
 def test_free_port_holds_its_port_so_the_next_server_takes_another():

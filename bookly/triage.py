@@ -13,7 +13,7 @@ import anthropic
 from typesafe_sdk import (Choice, Noul, RetryPolicy, Score, TypeSafeAPITimeoutError, TypeSafeAuthenticationError,
                           TypeSafeClient, TypeSafeError)
 
-INTENTS = ["order status", "return", "return rules", "shipping cost", "other", "unclear"]
+INTENTS = ["order status", "return", "return rules", "shipping cost", "password reset", "other", "unclear"]
 MOODS = ["calm", "annoyed", "angry"]
 # Descriptions go to Jev: undescribed, it read "I didn't like it" as "not said".
 REASONS = {
@@ -46,7 +46,8 @@ def jev_questions(order_ids: list[str]) -> dict:
             "message that names one of their books or orders in a return context; 'return rules' = a question about "
             "the store's return rules in general, such as how long they have to return a book or what can be returned, "
             "that names none of their books or orders and does not ask to start a return; 'shipping cost' = a question "
-            "about what shipping costs in general, naming none of their orders or books; 'other' = anything else, "
+            "about what shipping costs in general, naming none of their orders or books; 'password reset' = resetting "
+            "or recovering a password, or can't log in; 'other' = anything else, "
             "including general questions about the store's delivery times or destinations, and a question about the "
             "shipping charged on one of their orders, which is 'other' and never 'shipping cost' because it names one "
             "of their orders; 'unclear' = can't tell what they want.",

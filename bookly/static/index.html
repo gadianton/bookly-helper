@@ -67,6 +67,7 @@
   .orders-summary .recent { color: var(--muted); font-size: 14px; }
   .all-orders { font-weight: 600; font-size: 14px; margin-top: 6px; cursor: pointer; }
   .orders-list { display: none; border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 4px 20px; }
+  .sign-in { flex: 1 1 100%; padding: 20px; border-radius: 16px; background: #F6F7F9; color: var(--muted); }  /* the guest's line in the orders area (spec R1) */
   .orders-list.open { display: block; }
 
   /* Coloured cover blocks — colour rule: the first title's character codes,
@@ -101,7 +102,10 @@
   /* the diagram view: Look B, fixed light colours in both colour settings */
   #arch-view { --ink: #12141A; --muted: #5B6170; --page: #FFFFFF; --surface: #F3F4F7; --line: #ECEEF3; --line-strong: #DDE0E7; --accent: #2344C9; --accent-tint: #EEF2FF; --fail: #C13A2B; background: var(--page); color: var(--ink); font: 13px/18px "Manrope", system-ui, sans-serif; }
   #arch { position: relative; width: 1056px; height: 824px; transform-origin: top left; }
-  .arch-title { position: absolute; left: 64px; top: 28px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
+  /* the title's row: the outage switch sits on the same line, vertically centred in it */
+  .arch-title-row { position: absolute; left: 64px; top: 28px; display: flex; align-items: center; gap: 14px; }
+  .arch-title { font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
+  .arch-title-row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
   #last-turn { position: absolute; left: 64px; top: 62px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #turn-failed { position: absolute; left: 64px; top: 86px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #tools-label { position: absolute; left: 848px; top: 116px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
@@ -117,7 +121,7 @@
      (3 under the title), 3 in the 88 px boxes (2 under the title); the clamp draws the
      ellipsis on the last row shown, and the full line stays in the element */
   .box-lines { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--rows, 3); max-height: calc(var(--rows, 3) * 18px); }
-  .box[data-box="start"], .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --rows: 2; }
+  .box[data-box="start"], .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"], .box[data-box="accounts"] { --rows: 2; }
   .box[data-look="lit"] { background: #FFFFFF; border: 2px solid var(--ink); box-shadow: 0 0 0 4px var(--accent-tint); color: var(--ink); }
   .box[data-look="skipped"] { background: #FFFFFF; border: 2px dashed var(--muted); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
   .box[data-look="idle"] { background: var(--surface); border: 2px dashed var(--line-strong); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
@@ -127,12 +131,12 @@
   .box[data-box="start"], .box[data-box="jev"], .box[data-box="standin"] { --col: 1; }
   .box[data-box="rules"] { --col: 2; }
   .box[data-box="fixed"], .box[data-box="model"], .box[data-box="handoff"] { --col: 3; }
-  .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --col: 4; }
+  .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"], .box[data-box="accounts"] { --col: 4; }
   [data-arrow="storefront-start"], [data-arrow="storefront-jev"], [data-arrow="jev-standin"] { --col: 1; }
   [data-arrow="jev-rules"] { --col: 2; }
   [data-arrow="rules-model"], [data-arrow="rules-fixed"], [data-arrow="rules-handoff"] { --col: 3; }
-  [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"],
-  [data-arrow="to-orders"], [data-arrow="to-policy"], [data-arrow="to-returns"] { --col: 4; }
+  [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"], [data-arrow="tools-accounts"],
+  [data-arrow="to-orders"], [data-arrow="to-policy"], [data-arrow="to-returns"], [data-arrow="to-accounts"] { --col: 4; }
   [data-arrow] { position: absolute; overflow: visible; }
   [data-arrow] .line { fill: none; stroke: var(--line-strong); stroke-width: 2; stroke-linecap: round; }
   [data-arrow] .head { stroke: none; fill: var(--line-strong); }
@@ -231,7 +235,7 @@
     </label>
     <div class="header-actions">
       <label class="account">Account
-        <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
+        <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option><option value="guest">Not signed in</option></select>
       </label>
       <div class="switch" role="group" aria-label="View">
         <button type="button" id="view-store" aria-pressed="true">Storefront</button>
@@ -262,7 +266,10 @@
   </div>
   <div id="arch-view" class="hidden">
     <div id="arch">
-      <div class="arch-title">Live architecture</div>
+      <div class="arch-title-row">
+        <div class="arch-title">Live architecture</div>
+        <label><input type="checkbox" id="jev-outage"> Simulate Jev outage</label>
+      </div>
       <div id="last-turn">No turn yet · send a message in the chat</div>
       <div id="turn-failed"></div>
       <div id="tools-label">TOOLS</div>
@@ -282,12 +289,14 @@
       <svg data-arrow="rules-handoff" data-to="handoff" style="left:528px;top:372px" width="124" height="128" viewBox="0 0 124 128"><path class="line" d="M4 0 V124"/><path class="line" d="M4 124 H112"/><path class="head" d="M112 120 L120 124 L112 128 Z"/></svg>
       <svg data-arrow="jev-standin" data-to="standin" style="left:330px;top:372px" width="8" height="80" viewBox="0 0 8 80"><path class="line" d="M4 0 V80"/></svg>
       <div class="standin-label">if Jev is slow</div>
-      <svg data-arrow="tools-stub" data-to="" style="left:800px;top:316px" width="24" height="8" viewBox="0 0 24 8"><path class="line" d="M0 4 H24"/></svg>
-      <svg data-arrow="tools-upper" data-to="orders" style="left:820px;top:192px" width="8" height="128" viewBox="0 0 8 128"><path class="line" d="M4 0 V128"/></svg>
-      <svg data-arrow="tools-lower" data-to="returns" style="left:820px;top:320px" width="8" height="128" viewBox="0 0 8 128"><path class="line" d="M4 0 V128"/></svg>
-      <svg data-arrow="to-orders" data-to="orders" style="left:824px;top:188px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
-      <svg data-arrow="to-policy" data-to="policy" style="left:824px;top:316px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
-      <svg data-arrow="to-returns" data-to="returns" style="left:824px;top:444px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="tools-stub" data-to="" style="left:800px;top:272px" width="24" height="8" viewBox="0 0 24 8"><path class="line" d="M0 4 H24"/></svg>
+      <svg data-arrow="tools-upper" data-to="orders" style="left:820px;top:172px" width="8" height="104" viewBox="0 0 8 104"><path class="line" d="M4 0 V104"/></svg>
+      <svg data-arrow="tools-lower" data-to="returns" style="left:820px;top:276px" width="8" height="104" viewBox="0 0 8 104"><path class="line" d="M4 0 V104"/></svg>
+      <svg data-arrow="tools-accounts" data-to="accounts" style="left:820px;top:380px" width="8" height="104" viewBox="0 0 8 104"><path class="line" d="M4 0 V104"/></svg>
+      <svg data-arrow="to-orders" data-to="orders" style="left:824px;top:168px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-policy" data-to="policy" style="left:824px;top:272px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-returns" data-to="returns" style="left:824px;top:376px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-accounts" data-to="accounts" style="left:824px;top:480px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
 
       <div class="box" data-box="storefront" data-look="idle" style="left:64px;top:268px;height:104px">
         <div class="box-title">Storefront</div>
@@ -321,16 +330,20 @@
         <div class="box-title">Handoff</div>
         <div class="box-lines">idle</div>
       </div>
-      <div class="box" data-box="orders" data-look="idle" style="left:848px;top:148px;height:88px">
+      <div class="box" data-box="orders" data-look="idle" style="left:848px;top:128px;height:88px">
         <div class="box-title">Orders</div>
         <div class="box-lines">idle</div>
       </div>
-      <div class="box" data-box="policy" data-look="idle" style="left:848px;top:276px;height:88px">
+      <div class="box" data-box="policy" data-look="idle" style="left:848px;top:232px;height:88px">
         <div class="box-title">Return policy</div>
         <div class="box-lines">idle</div>
       </div>
-      <div class="box" data-box="returns" data-look="idle" style="left:848px;top:404px;height:88px">
+      <div class="box" data-box="returns" data-look="idle" style="left:848px;top:336px;height:88px">
         <div class="box-title">Returns</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="accounts" data-look="idle" style="left:848px;top:440px;height:88px">
+        <div class="box-title">Accounts</div>
         <div class="box-lines">idle</div>
       </div>
 
@@ -434,7 +447,18 @@ function daysAgo(isoDate, today) {  // days counted from the store's today, neve
   const n = Math.round((Date.parse(today) - Date.parse(isoDate)) / 86400000);
   return n <= 0 ? 'today' : n === 1 ? '1 day ago' : `${n} days ago`;
 }
+function showGuestOrders() {  // a signed-out visitor: no orders, just the sign-in line (spec R1)
+  for (const el of document.querySelectorAll('.orders .sign-in')) el.remove();
+  for (const s of ['.order-card', '.orders-summary']) { $(s).textContent = ''; $(s).style.display = 'none'; }
+  $('#orders').parentElement.classList.remove('open');  // the list a shopper opened goes too
+  const line = document.createElement('div');
+  line.className = 'sign-in';
+  line.textContent = 'Sign in to see your orders.';
+  $('.orders').appendChild(line);
+}
 function showOrderCards(c) {  // the two cards above the shelves, filled from the conversation start
+  for (const el of document.querySelectorAll('.orders .sign-in')) el.remove();  // a guest's line goes
+  for (const s of ['.order-card', '.orders-summary']) $(s).style.display = '';  // and the cards come back
   const newest = c.orders[0];
   const label = {processing: 'Preparing', shipped: 'On its way', delivered: 'Delivered'}[newest.status];
   const when = {processing: `Ordered ${daysAgo(newest.order_date, c.today)}`,
@@ -519,7 +543,8 @@ for (const shelf of [...new Set(BOOKS.map(b => b.shelf))]) {  // the two shelves
 }
 
 const HELP = [{label: "Where's my order", pick: {intent: 'order status'}},
-              {label: 'Return a book', pick: {intent: 'return'}}];
+              {label: 'Return a book', pick: {intent: 'return'}},
+              {label: 'Reset my password', pick: {intent: 'password reset'}}];
 
 function showChoices(list) {
   const wrap = document.createElement('div');
@@ -567,7 +592,7 @@ function setBox(name, look, lines, title) {
 function paintArrows() {  // an arrow is ink while the box it points to is lit, except the two out of Path rules:
   for (const a of document.querySelectorAll('[data-arrow]')) {  // they follow the route path rules picked
     let ink;
-    if (a.dataset.arrow === 'tools-stub') ink = ['orders', 'policy', 'returns'].some(n => document.querySelector(`.box[data-box=${n}]`).dataset.look === 'lit');
+    if (a.dataset.arrow === 'tools-stub') ink = ['orders', 'policy', 'returns', 'accounts'].some(n => document.querySelector(`.box[data-box=${n}]`).dataset.look === 'lit');
     else if (a.dataset.arrow === 'rules-fixed') ink = FIXED_PATHS.includes(turnEvents.path);
     else if (a.dataset.arrow === 'rules-handoff') ink = turnEvents.path === 'handoff';
     else ink = !!a.dataset.to && document.querySelector(`.box[data-box=${a.dataset.to}]`).dataset.look === 'lit';
@@ -600,7 +625,9 @@ function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn start
   }
 }
 
-const FIXED_PATHS = ['scope', 'signoff', 'clarify_intent', 'clarify_order', 'clarify_book', 'wait', 'handoff', 'goodbye', 'return_rules', 'shipping_cost'];
+const FIXED_PATHS = ['scope', 'signoff', 'clarify_intent', 'clarify_order', 'clarify_book', 'wait', 'handoff', 'goodbye',
+                     'reset_signed_in', 'ask_email', 'ask_email_again', 'reset_signed_out', 'sign_in',
+                     'return_rules', 'shipping_cost'];
 const REASONS = {  // the spec's reason table; the "answer to model" row carries its intent inside the reason
   'already handed off': 'already with a person',
   'accepted the offer to pass the question to the team': 'took the team offer',
@@ -639,6 +666,7 @@ function toolLine(e) {  // the spec's line form per tool and result; a part the 
       : r.result}`;
     case 'return_action': return `return → ${r.result === 'done' ? `done ${r.confirmation}`
       : r.result === 'refused' ? `refused: ${r.why}` : r.result}`;
+    case 'send_reset_link': return `reset link → ${r.result}`;
   }
   return `${e.name} → ${r.result ?? JSON.stringify(e.result)}`;  // any other tool
 }
@@ -761,7 +789,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
   } else if (e.step === 'tool_call') {
     // a handoff tool_call adds nothing (the handoff event after it lights Handoff); a call with
     // no source lights nothing and stays in the step log; the source picks the data box
-    const dataBox = {orders: 'orders', 'return policy': 'policy', returns: 'returns'}[e.source];
+    const dataBox = {orders: 'orders', 'return policy': 'policy', returns: 'returns', accounts: 'accounts'}[e.source];
     if (dataBox && e.name !== 'handoff') {
       turnEvents.calls = turnEvents.calls || {};
       const n = turnEvents.calls[dataBox] = (turnEvents.calls[dataBox] || 0) + 1;
@@ -794,8 +822,9 @@ async function startConversation() {
     li.appendChild(small);
     $('#orders').appendChild(li);
   }
-  showOrderCards(c);
-  add($('#msgs'), 'msg bot', `Hi ${c.name.split(' ')[0]}, what can I help with?`);
+  if (shopper === 'guest') showGuestOrders(); else showOrderCards(c);
+  add($('#msgs'), 'msg bot', shopper === 'guest' ? 'Hi there, what can I help with?'  // spec R1
+                                                 : `Hi ${c.name.split(' ')[0]}, what can I help with?`);
   showChoices(HELP);
 }
 
@@ -877,7 +906,8 @@ async function send(text, at, n, pick) {
   turnOrders = null;  // a fresh turn: nothing of the last one may bleed into it
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text, pick})});
+    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text, pick,
+                         jev_outage: $('#jev-outage').checked})});
   if (!r.ok) throw new Error(`chat request failed: ${r.status}`);
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
   let buf = '';
@@ -941,6 +971,9 @@ $('#form').onsubmit = e => {
     .catch(() => at === switches && onEvent({step: 'error', error: 'the chat request failed'}));
 };
 let ready = startConversation();
+$('#jev-outage').checked = false;  // Firefox restores a checked box on reload: every load starts with the switch off
+// and after the restore, which lands after this script; a back/forward return (persisted) is no reload, so it keeps its state
+addEventListener('pageshow', e => { if (!e.persisted) $('#jev-outage').checked = false; });
 </script>
 </body>
 </html>
