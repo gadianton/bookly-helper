@@ -3,6 +3,7 @@
 HELP_BUTTONS = [
     {"label": "Where's my order", "pick": {"intent": "order status"}},
     {"label": "Return a book", "pick": {"intent": "return"}},
+    {"label": "Reset my password", "pick": {"intent": "password reset"}},
 ]
 CLOSING_BUTTONS = HELP_BUTTONS + [{"label": "No, that's all", "pick": {"intent": "done"}}]
 
@@ -14,6 +15,8 @@ def valid_pick(pick: dict, orders: list[dict]) -> bool:
         return False
     order = next((o for o in orders if o["id"] == pick.get("order")), None)
     if pick.get("intent") == "done":
+        return set(pick) == {"intent"}
+    if pick.get("intent") == "password reset":
         return set(pick) == {"intent"}
     if pick.get("intent") == "order status":
         if set(pick) == {"intent"}:

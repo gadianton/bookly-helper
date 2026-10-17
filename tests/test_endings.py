@@ -10,6 +10,7 @@ CLOSING = "Is there anything else I can help with?"  # the spec's line, as the s
 NO_MORE = [
     {"label": "Where's my order", "pick": {"intent": "order status"}},
     {"label": "Return a book", "pick": {"intent": "return"}},
+    {"label": "Reset my password", "pick": {"intent": "password reset"}},
     {"label": "No, that's all", "pick": {"intent": "done"}},
 ]
 
@@ -65,7 +66,7 @@ def test_questions_get_no_closing_question(store, settings):
     convo, (out,) = maya(store, settings, [("hi", answers(intent="unclear"))])
     assert out["reply"] == fixed_text("clarify_intent", maya_orders, NOW)
     assert out["ending"] is False
-    assert choices(out, maya_orders, none_returned) == NO_MORE[:2]
+    assert choices(out, maya_orders, none_returned) == NO_MORE[:3]
 
     # the pass-to-team offer (R1.5)
     convo, (out,) = maya(store, settings, [("do you sell gift cards?", answers(intent="other"))])

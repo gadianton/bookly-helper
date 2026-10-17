@@ -1,6 +1,7 @@
 {
   "maya": {
     "name": "Maya Chen",
+    "email": "maya.chen@example.com",
     "orders": [
       {
         "id": "BL-10533", "order_days_ago": 3, "status": "shipped", "carrier": "UPS", "tracking": "1Z84F2W70391845527",
@@ -55,6 +56,7 @@
   },
   "riley": {
     "name": "Riley Brooks",
+    "email": "riley.brooks@example.com",
     "orders": [
       {
         "id": "BL-20917", "order_days_ago": 2, "status": "processing",
@@ -78,5 +80,13 @@
       {"days_ago": 55, "summary": "Reported a book arrived damaged; refunded."}
     ],
     "preferences": ["Romantasy", "Series"]
+  },
+  "guest": {
+    "name": "Not signed in",
+    "email": null,
+    "orders": [],
+    "damaged_claims": [],
+    "past_chats": [],
+    "preferences": []
   }
 }

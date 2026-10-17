@@ -21,6 +21,8 @@ def test_pick_naming_another_shoppers_order_or_wrong_item_refused(store):
     assert not valid_pick({"intent": "order status", "order": "BL-10498", "item": "BL-10498-1"}, maya)
     assert not valid_pick({"intent": "order status", "order": "BL-99999"}, maya)
     assert not valid_pick({"intent": "order status", "order": "BL-10498", "extra": 1}, maya)
+    assert valid_pick({"intent": "password reset"}, maya)
+    assert not valid_pick({"intent": "password reset", "order": "BL-10533"}, maya)
     assert valid_pick({"intent": "return", "order": "BL-10498", "item": "BL-10498-1"}, maya)
     assert valid_pick({"intent": "return"}, maya)
     assert valid_pick({"intent": "order status", "order": "BL-10533"}, maya)
@@ -75,17 +77,19 @@ def test_buttons_only_on_the_fixed_questions(store):
     assert choices({"path": "clarify_intent", "intent": "unclear"}, maya, none_returned) == [
         {"label": "Where's my order", "pick": {"intent": "order status"}},
         {"label": "Return a book", "pick": {"intent": "return"}},
+        {"label": "Reset my password", "pick": {"intent": "password reset"}},
     ]
     for out in ({"path": "handoff", "ending": True},
                 {"path": "order_status", "intent": "order status", "ending": True}):
-        assert choices(out, maya, none_returned) == THREE  # every ending gets the three buttons
+        assert choices(out, maya, none_returned) == FOUR  # every ending gets the four buttons
     for out in ({"path": "order_status", "intent": "order status"}, {"path": "handoff"}, {"path": "scope"}):
         assert choices(out, maya, none_returned) == []
 
 
-THREE = [
+FOUR = [
     {"label": "Where's my order", "pick": {"intent": "order status"}},
     {"label": "Return a book", "pick": {"intent": "return"}},
+    {"label": "Reset my password", "pick": {"intent": "password reset"}},
     {"label": "No, that's all", "pick": {"intent": "done"}},
 ]
 
@@ -105,5 +109,5 @@ def test_proposed_answers_carry_no_pick_and_stop_at_three(store, settings):
     assert out["reply"] == "Delivered. Want to return it?" and out["ending"] is False
     # a finished reply with no answers stays an ending: the closing line and the three buttons
     out, closing = turn({"text": "Delivered.", "needs_answer": False})
-    assert closing == THREE
+    assert closing == FOUR
     assert out["reply"] == "Delivered.\nIs there anything else I can help with?" and out["ending"] is True

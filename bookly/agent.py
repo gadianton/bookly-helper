@@ -9,7 +9,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from bookly.hours import ET, wait_message
-from bookly.paths import CLOSING, fixed_text, new_state, pick_path, tag_for
+from bookly.paths import CLOSING, fixed_text, find_email, new_state, pick_path, tag_for
 from bookly.triage import JevUnavailable, anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
@@ -69,6 +69,7 @@ class Conversation:
         self.jev = jev or ask_jev
         self.orders = store.orders(shopper_id)
         self.state = new_state()
+        self.state["guest"] = store.email(shopper_id) is None  # no email on file: the signed-out visitor
         self.history = []  # [{"role": "customer" | "agent", "text"}]
         self.turn = 0
         self.profile = None
@@ -100,6 +101,7 @@ class Conversation:
             emit("triage", start, model=t["model"], answers=t["raw"], model_ms=round(t["ms"], 1),
                  result={k: t[k] for k in ("intent", "effective_order", "reason", "person", "accepts",
                                           "declines", "mood", "angry")})
+            t["email"] = find_email(text)  # the signed-out reset reads the typed address, triage doesn't
         else:  # a tap settles what it names: no Jev, no standby, no words so no mood or person to read
             start = time.perf_counter()
             t = {"intent": pick["intent"], "order_pick": pick.get("order") or "can't tell",
@@ -121,6 +123,11 @@ class Conversation:
         if pick is not None and pick["intent"] == "done":
             # "No, that's all": the tap settles the goodbye, at any point in the chat
             p = {"path": "goodbye", "reason": "done tapped"}
+        elif pick is not None and pick["intent"] == "password reset":
+            # a signed-out visitor's reset tap starts at the email question, restarting its count
+            p = {"path": "ask_email" if s["guest"] else "reset_signed_in", "reason": "password reset tapped"}
+        elif pick is not None and s["guest"]:
+            p = {"path": "sign_in", "reason": "not signed in"}
         elif pick is not None and not pick.get("order"):
             # a kind-of-help tap always asks which order or book, remembered order or not
             p = {"path": "clarify_book" if pick["intent"] == "return" else "clarify_order",
@@ -130,6 +137,10 @@ class Conversation:
         emit("path", start, **p)
         if p["path"] == "handoff":
             return self._handoff(text, p["reason"], emit, intent=t["intent"])
+        if p["path"] == "reset_signed_in":
+            return self._reset_signed_in(text, emit, intent=t["intent"])
+        if p["path"] == "reset_signed_out":
+            return self._reset_signed_out(text, t["email"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
             reply = fixed_text(p["path"], self.orders, self.now(), s["handed_off"], intent=t["intent"],
                                buttons=self.buttons)
@@ -137,16 +148,37 @@ class Conversation:
         return self._run_model(text, p["path"], t, emit)
 
     # ---- endings ----
+    def _reset_signed_in(self, text, emit, intent=None):
+        # the link always goes to the email on file, so the send can only succeed
+        start = time.perf_counter()
+        email = self.store.email(self.shopper_id)
+        emit("tool_call", start, name="send_reset_link", source="accounts", input={"email": email}, result="sent")
+        reply = fixed_text("reset_signed_in", self.orders, self.now(), email=email)
+        return self._finish(text, reply, "reset_signed_in", emit, intent=intent)
+
+    def _reset_signed_out(self, text, email, emit, intent=None):
+        # the result never reaches the reply, so no wording can reveal who has an account
+        start = time.perf_counter()
+        result = "sent" if self.store.account_for(email) else "no account"
+        emit("tool_call", start, name="send_reset_link", source="accounts", input={"email": email}, result=result)
+        reply = fixed_text("reset_signed_out", self.orders, self.now())
+        return self._finish(text, reply, "reset_signed_out", emit, intent=intent)
+
     def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False, intent=None,
                 proposed=False):
         s = self.state
         start = time.perf_counter()
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
+        # a signed-out visitor's pending email question: asked by the two questions, ended by
+        # every other reply (the handoff, the sign-in, the goodbye and the same-for-every-email line)
+        s["email_asked"] = path in ("ask_email", "ask_email_again")
+        if path == "ask_email":
+            s["email_misses"] = 0
         if path == "wait":
             self._leave_with_team()
-        # an ending: a handoff, the team-has-it line, the signoff, or a reply-model reply
-        # that asks nothing, states no offer this turn and proposes no answers (the stray-text reply included)
-        ending = path in ("handoff", "wait", "signoff") or (
+        # an ending: a handoff, the team-has-it line, the signoff, the two resets, the sign-in reply,
+        # or a reply-model reply that asks nothing, states no offer this turn and proposes no answers
+        ending = path in ("handoff", "wait", "signoff", "reset_signed_in", "reset_signed_out", "sign_in") or (
             path in TOOLS_BY_PATH and not needs_answer and not offer_pending and not proposed)
         if ending:
             if path in TOOLS_BY_PATH:  # the model's own "anything else ...?" goes, so the question matches the buttons

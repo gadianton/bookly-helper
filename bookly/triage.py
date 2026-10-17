@@ -13,7 +13,7 @@ import anthropic
 from typesafe_sdk import (Choice, Noul, RetryPolicy, Score, TypeSafeAPITimeoutError, TypeSafeAuthenticationError,
                           TypeSafeClient, TypeSafeError)
 
-INTENTS = ["order status", "return", "other", "unclear"]
+INTENTS = ["order status", "return", "password reset", "other", "unclear"]
 MOODS = ["calm", "annoyed", "angry"]
 # Descriptions go to Jev: undescribed, it read "I didn't like it" as "not said".
 REASONS = {
@@ -41,7 +41,8 @@ def jev_questions(order_ids: list[str]) -> dict:
         "intent": Choice(
             instructions="What does the customer want help with in their latest message, read with the conversation so far? "
             "'order status' = where an order is or when it arrives; 'return' = returning, refunding or exchanging a book, "
-            "including answers to the agent's return questions or offers; 'other' = anything else; "
+            "including answers to the agent's return questions or offers; 'password reset' = resetting or recovering "
+            "a password, or can't log in; 'other' = anything else; "
             "'unclear' = can't tell what they want.",
             criteria={i: None for i in INTENTS},
         ),
