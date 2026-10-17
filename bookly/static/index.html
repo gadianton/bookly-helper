@@ -641,25 +641,53 @@ function toolLine(e) {  // the spec's line form per tool and result; a part the 
   return `${e.name} → ${r.result ?? JSON.stringify(e.result)}`;  // any other tool
 }
 
-function answerRows(e) {  // a triage event -> the card's eight rows (spec R3): plain words, how sure Jev is
+function answerRows(e) {  // a triage event -> the card's eight rows (spec R3, R4, R5): plain words, how sure Jev is
   const a = e.answers || {};
+  const r = e.result || {};
   const pct = x => `${Math.round(100 * Number(x))}%`;
-  const yesno = (label, p) => p >= 0.5 ? `${label}: yes ${pct(p)}` : `${label}: no ${pct(1 - p)}`;
+  const yesno = (label, p) => `${label}: ${p >= 0.5 ? 'yes' : 'no'} ${pct(p >= 0.5 ? p : 1 - p)}`;
   const pick = (label, o, word) => `${label}: ${word || o.pick} ${pct(o.confidence)}`;
   const levels = Object.entries(a.mood.levels);  // the highest level wins, ties to the first (as triage.py's combine)
   const mood = levels.reduce(([ml, mp], [l, p]) => p > mp ? [l, p] : [ml, mp]);
-  return [
-    {label: 'Wants', text: pick('Wants', a.intent), overruled: false},
-    {label: 'Order', text: pick('Order', a.order,
-                                a.order.pick === 'names an order not in this list' ? 'not one of theirs' : null),
-     overruled: false},
-    {label: 'Return reason', text: pick('Return reason', a.reason), overruled: false},
-    {label: 'Mood', text: `Mood: ${mood[0]} ${pct(mood[1])}`, overruled: false},
-    {label: 'Clear what they want', text: yesno('Clear what they want', a.clear.p), overruled: false},
-    {label: 'Asks for a person', text: yesno('Asks for a person', a.person.p), overruled: false},
-    {label: 'Takes the offer', text: yesno('Takes the offer', a.accept.p), overruled: false},
-    {label: "Says that's all", text: yesno("Says that's all", a.declines.p), overruled: false},
-  ];
+  const row = (label, text, overruled) => ({label, text, overruled: !!overruled});
+  const isOrder = s => !!s && s !== "can't tell" && s !== 'names an order not in this list';
+
+  const wants = a.intent.pick !== r.intent && r.intent
+    ? row('Wants', `${pick('Wants', a.intent)} → ${r.intent}`, true)  // the code's intent won (spec R4)
+    : row('Wants', pick('Wants', a.intent));
+
+  const eff = r.effective_order;
+  const orderBase = pick('Order', a.order,
+                         a.order.pick === 'names an order not in this list' ? 'not one of theirs' : null);
+  let order = row('Order', orderBase);
+  if (a.order.pick === "can't tell" && isOrder(eff))
+    order = row('Order', `${orderBase} → ${eff} (earlier)`);  // filled from earlier (spec R5)
+  else if (isOrder(a.order.pick) && a.order.pick !== eff)
+    order = row('Order', `${orderBase} → ${isOrder(eff) ? `${eff} (earlier)` : eff}`, true);  // the pick was dropped (spec R4)
+  else if (a.order.pick === 'names an order not in this list' && isOrder(eff))
+    order = row('Order', `${orderBase} → ${eff} (earlier)`, true);
+
+  let reason = row('Return reason', pick('Return reason', a.reason));
+  if (a.reason.pick === 'not said' && r.reason && r.reason !== 'not said')
+    reason = row('Return reason', `${pick('Return reason', a.reason)} → ${r.reason} (earlier)`);  // filled from earlier (spec R5)
+
+  let moodRow = row('Mood', `Mood: ${mood[0]} ${pct(mood[1])}`);
+  if (r.angry !== undefined && r.angry !== (mood[0] === 'angry'))
+    moodRow = row('Mood', `Mood: ${mood[0]} ${pct(mood[1])} → ${r.angry ? 'angry' : 'not angry'}`, true);
+
+  const flipped = (label, p, res) => {  // a yes/no row the code took the other way (spec R4)
+    const word = p >= 0.5 ? 'yes' : 'no';
+    return res !== undefined && word !== (res ? 'yes' : 'no')
+      ? row(label, `${yesno(label, p)} → ${res ? 'yes' : 'no'}`, true)
+      : row(label, yesno(label, p));
+  };
+  const clear = a.clear.p < 0.5 && r.intent && r.intent !== 'unclear'  // "no", but the code went ahead (spec R4)
+    ? row('Clear what they want', `${yesno('Clear what they want', a.clear.p)} → yes`, true)
+    : row('Clear what they want', yesno('Clear what they want', a.clear.p));
+  return [wants, order, reason, moodRow, clear,
+          flipped('Asks for a person', a.person.p, r.person),
+          flipped('Takes the offer', a.accept.p, r.accepts),
+          flipped("Says that's all", a.declines.p, r.declines)];
 }
 
 function answersCard(title, body) {  // the card's title and either the rows or the note (spec R2)
