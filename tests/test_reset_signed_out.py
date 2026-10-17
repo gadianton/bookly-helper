@@ -213,3 +213,10 @@ def test_guest_after_handoff(store, settings):
     assert sends(events) == []
     assert outs[3]["reply"].startswith("A member of the Bookly team has this conversation now.")
     assert [o["tag"] for o in outs] == ["handed off"] * 4
+
+    # after a handoff, an email given to the email question is used even when it reads as a "no"
+    _, outs, events = guest(store, settings, ("I want to talk to a person", answers(person=1.0)),
+                            ("I need to reset my password", answers(intent=PW)),
+                            (f"no, it's {MAYA_EMAIL}", answers(intent="other", declines=1.0)))
+    assert [o["path"] for o in outs] == ["handoff", "ask_email", "reset_signed_out"]
+    assert [e["result"] for e in sends(events)] == ["sent"]

@@ -20,8 +20,10 @@ def new_state() -> dict:
 def pick_path(t: dict, s: dict) -> dict:
     if s["handed_off"]:
         # after a handoff: a decline says goodbye, the team already has anger and person-asks,
-        # and only a new order-status, return or password-reset request reaches the agent
-        if s["last_reply_kind"] == "closing" and t["declines"] and t["intent"] not in (*WORK, "password reset"):
+        # and only a new order-status, return or password-reset request reaches the agent;
+        # an email given to the pending email question is read first (the signed-out reset's step 2)
+        if s["last_reply_kind"] == "closing" and t["declines"] and t["intent"] not in (*WORK, "password reset") \
+                and not (s["email_asked"] and t.get("email")):
             return {"path": "goodbye", "reason": "declined after the closing question"}
         if t["person"] or t["angry"]:
             return {"path": "wait", "reason": "already handed off"}
