@@ -150,7 +150,15 @@
   [data-arrow].ink .line, [data-arrow].ink .head { transition-duration: 200ms;
                                                    transition-delay: calc(100ms + 40ms * var(--col)); }
   .standin-label { position: absolute; left: 346px; top: 404px; width: 96px; font-size: 12px; line-height: 16px; color: var(--muted); }
-  #panel { position: absolute; left: 64px; top: 588px; width: 932px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
+  /* the answers card (spec R2): left of the step log in the bottom strip, two columns of four;
+     a row keeps one line and ends in an ellipsis when too long, its full text staying in the element */
+  #answers { position: absolute; left: 64px; top: 588px; width: 560px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; }
+  .answers-title { font-weight: 700; }
+  .answers-note { color: var(--muted); }
+  .answers-cols { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 18px); grid-auto-flow: column; column-gap: 16px; }  /* column-major: the left four, then the right four */
+  .answer { line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .answer.overruled { color: var(--muted); }  /* a row the code overruled (spec R4) */
+  #panel { position: absolute; left: 636px; top: 588px; width: 360px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   #panel .ev { white-space: pre-wrap; }
   #panel .ev:last-child { border-bottom: 0; }
@@ -325,6 +333,10 @@
         <div class="box-lines">idle</div>
       </div>
 
+      <section id="answers" aria-label="Jev's answers">
+        <div class="answers-title">Jev's 8 answers</div>
+        <div class="answers-note">No message yet</div>
+      </section>
       <aside id="panel" aria-label="Step log"></aside>
     </div>
   </div>
@@ -629,6 +641,56 @@ function toolLine(e) {  // the spec's line form per tool and result; a part the 
   return `${e.name} → ${r.result ?? JSON.stringify(e.result)}`;  // any other tool
 }
 
+function answerRows(e) {  // a triage event -> the card's eight rows (spec R3): plain words, how sure Jev is
+  const a = e.answers || {};
+  const pct = x => `${Math.round(100 * Number(x))}%`;
+  const yesno = (label, p) => p >= 0.5 ? `${label}: yes ${pct(p)}` : `${label}: no ${pct(1 - p)}`;
+  const pick = (label, o, word) => `${label}: ${word || o.pick} ${pct(o.confidence)}`;
+  const levels = Object.entries(a.mood.levels);  // the highest level wins, ties to the first (as triage.py's combine)
+  const mood = levels.reduce(([ml, mp], [l, p]) => p > mp ? [l, p] : [ml, mp]);
+  return [
+    {label: 'Wants', text: pick('Wants', a.intent), overruled: false},
+    {label: 'Order', text: pick('Order', a.order,
+                                a.order.pick === 'names an order not in this list' ? 'not one of theirs' : null),
+     overruled: false},
+    {label: 'Return reason', text: pick('Return reason', a.reason), overruled: false},
+    {label: 'Mood', text: `Mood: ${mood[0]} ${pct(mood[1])}`, overruled: false},
+    {label: 'Clear what they want', text: yesno('Clear what they want', a.clear.p), overruled: false},
+    {label: 'Asks for a person', text: yesno('Asks for a person', a.person.p), overruled: false},
+    {label: 'Takes the offer', text: yesno('Takes the offer', a.accept.p), overruled: false},
+    {label: "Says that's all", text: yesno("Says that's all", a.declines.p), overruled: false},
+  ];
+}
+
+function answersCard(title, body) {  // the card's title and either the rows or the note (spec R2)
+  const card = $('#answers');
+  card.textContent = '';
+  const el = document.createElement('div');
+  el.className = 'answers-title';
+  el.textContent = title;
+  card.append(el, body);
+  return card;
+}
+
+function showAnswers(e) {  // draws the card's title and its eight rows
+  const cols = document.createElement('div');
+  cols.className = 'answers-cols';
+  for (const r of answerRows(e)) {
+    const el = document.createElement('div');
+    el.className = r.overruled ? 'answer overruled' : 'answer';
+    el.textContent = r.text;  // the whole line stays in the element when its column ellipsises it
+    cols.appendChild(el);
+  }
+  answersCard("Jev's 8 answers", cols);
+}
+
+function showAnswersNote(text) {  // the title and a note, no rows
+  const note = document.createElement('div');
+  note.className = 'answers-note';
+  note.textContent = text;
+  answersCard("Jev's 8 answers", note);
+}
+
 function routeBox(e) {  // the events that light boxes; reply, tag and the rest stay step-log only
   if (e.step === 'standby') {
     turnEvents.standby = true;
@@ -649,6 +711,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
       if (!turnEvents.standby) setBox('jev', 'skipped', ['off: Haiku is triage']);
       setBox('standin', 'lit', [r.intent, when]);
     }
+    showAnswers(e);  // the card holds the turn's eight answers (spec R2)
   } else if (e.step === 'path') {
     turnEvents.path = e.path;
     setBox('rules', 'lit', [`${e.path}: ${shortReason(e.reason)}`]);
@@ -689,6 +752,7 @@ async function startConversation() {
   setBox('start', 'lit', [c.name, `${c.orders.length} order${c.orders.length === 1 ? '' : 's'} loaded`]);
   $('#msgs').textContent = '';
   $('#panel').textContent = '';
+  showAnswersNote('No message yet');  // the card starts each conversation empty (spec R2)
   add($('#panel'), 'ev ev-turn', `new conversation: ${c.name}`);
   $('#orders').innerHTML = '';
   for (const o of c.orders) {
