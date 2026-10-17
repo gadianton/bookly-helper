@@ -772,6 +772,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
 
 async function startConversation() {
   resetBoxes();  // loading a conversation puts every box back to idle (page load, shopper switch, retry load)
+  showAnswersNote('No message yet');  // the card starts each conversation empty (spec R2), before the load so no old answers linger
   const shopper = $('#shopper').value, at = switches;
   const r = await fetch('/conversation', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({shopper})});
   const c = await r.json();
@@ -781,7 +782,6 @@ async function startConversation() {
   setBox('start', 'lit', [c.name, `${c.orders.length} order${c.orders.length === 1 ? '' : 's'} loaded`]);
   $('#msgs').textContent = '';
   $('#panel').textContent = '';
-  showAnswersNote('No message yet');  // the card starts each conversation empty (spec R2)
   add($('#panel'), 'ev ev-turn', `new conversation: ${c.name}`);
   $('#orders').innerHTML = '';
   for (const o of c.orders) {
