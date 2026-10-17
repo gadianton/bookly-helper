@@ -134,9 +134,9 @@ class Conversation:
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
         if path == "wait":
             self._leave_with_team()
-        # an ending: a handoff, the team-has-it line, the signoff, or a reply-model reply
+        # an ending: a handoff, the team-has-it line, the signoff, the two fact answers, or a reply-model reply
         # that asks nothing, states no offer this turn and proposes no answers (the stray-text reply included)
-        ending = path in ("handoff", "wait", "signoff") or (
+        ending = path in ("handoff", "wait", "signoff", "return_rules", "shipping_cost") or (
             path in TOOLS_BY_PATH and not needs_answer and not offer_pending and not proposed)
         if ending:
             if path in TOOLS_BY_PATH:  # the model's own "anything else ...?" goes, so the question matches the buttons
