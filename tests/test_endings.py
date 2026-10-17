@@ -209,10 +209,11 @@ def test_rules_answer_keeps_the_return_in_progress(store, settings):
                            ("reply", {"text": "Why are you returning it?", "needs_answer": True}))
     convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=model,
                          jev=fake_triage(answers(intent="return", order="BL-10406", reason="changed mind"),
-                                         answers(intent="return rules"),
+                                         answers(intent="return rules", reason="damaged"),
                                          answers(intent="return")))
     assert convo.send("I want to return Circe")["path"] == "return"
-    assert convo.send("How long do I have to return a book?")["path"] == "return_rules"
+    # the rules question reads as "damaged", but it is about the rules, not about Circe
+    assert convo.send("What if a book arrives damaged?")["path"] == "return_rules"
     assert convo.send("I'd like to go ahead with the return")["path"] == "return"
     assert '"order_this_message_is_about": "BL-10406"' in model.requests[-1]["system"]
     assert '"return_reason_from_conversation": "changed mind"' in model.requests[-1]["system"]

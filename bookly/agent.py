@@ -9,7 +9,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from bookly.hours import ET, wait_message
-from bookly.paths import CLOSING, fixed_text, find_email, new_state, pick_path, tag_for
+from bookly.paths import CLOSING, FACTS, fixed_text, find_email, new_state, pick_path, tag_for
 from bookly.triage import JevUnavailable, anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
@@ -116,7 +116,9 @@ class Conversation:
         if pick is not None:  # a tap settles the book too: named item -> that book, no item -> none
             s["book"] = next(({"item_id": pick["item"], "title": i["title"]}
                               for o in self.orders for i in o["items"] if i["item_id"] == pick.get("item")), None)
-        if t["raw"]["reason"]["pick"] != "not said":  # a reason said now applies to the next book quoted
+        # a reason said now applies to the next book quoted; a general rules question ("what if a book arrives
+        # damaged?") names no book of theirs, so the return in progress keeps its own reason
+        if t["raw"]["reason"]["pick"] != "not said" and t["intent"] not in FACTS:
             s["kept_reason"], s["reason_item"] = t["raw"]["reason"]["pick"], None
 
         start = time.perf_counter()
