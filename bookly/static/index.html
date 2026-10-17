@@ -949,7 +949,8 @@ $('#form').onsubmit = e => {
 };
 let ready = startConversation();
 $('#jev-outage').checked = false;  // Firefox restores a checked box on reload: every load starts with the switch off
-addEventListener('pageshow', () => { $('#jev-outage').checked = false; });  // and after the restore, which lands after this script
+// and after the restore, which lands after this script; a back/forward return (persisted) is no reload, so it keeps its state
+addEventListener('pageshow', e => { if (!e.persisted) $('#jev-outage').checked = false; });
 </script>
 </body>
 </html>
