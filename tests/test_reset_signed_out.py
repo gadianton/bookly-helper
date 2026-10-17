@@ -220,3 +220,11 @@ def test_guest_after_handoff(store, settings):
                             (f"no, it's {MAYA_EMAIL}", answers(intent="other", declines=1.0)))
     assert [o["path"] for o in outs] == ["handoff", "ask_email", "reset_signed_out"]
     assert [e["result"] for e in sends(events)] == ["sent"]
+
+    # after a handoff and a goodbye, a "no thanks" to the email question still gets the goodbye
+    _, outs, events = guest(store, settings, ("I want to talk to a person", answers(person=1.0)),
+                            ("no thanks", answers(intent="other", declines=1.0)),
+                            ("I need to reset my password", answers(intent=PW)),
+                            ("no thanks", answers(intent="other", declines=1.0)))
+    assert [o["path"] for o in outs] == ["handoff", "goodbye", "ask_email", "goodbye"]
+    assert sends(events) == []

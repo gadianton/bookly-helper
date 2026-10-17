@@ -21,15 +21,15 @@ def pick_path(t: dict, s: dict) -> dict:
     if s["handed_off"]:
         # after a handoff: a decline says goodbye, the team already has anger and person-asks,
         # and only a new order-status, return or password-reset request reaches the agent;
-        # an email given to the pending email question is read first (the signed-out reset's step 2)
+        # a pending email question is read by the signed-out reset's step 2, its goodbye included
         if s["last_reply_kind"] == "closing" and t["declines"] and t["intent"] not in (*WORK, "password reset") \
-                and not (s["email_asked"] and t.get("email")):
+                and not s["email_asked"]:
             return {"path": "goodbye", "reason": "declined after the closing question"}
         if t["person"] or t["angry"]:
             return {"path": "wait", "reason": "already handed off"}
         p = _pick(t, s)
         return p if p["path"] in ("order_status", "return", "clarify_order", "clarify_book", "reset_signed_in",
-                                  "reset_signed_out", "ask_email", "ask_email_again", "sign_in") \
+                                  "reset_signed_out", "ask_email", "ask_email_again", "sign_in", "goodbye") \
             else {"path": "wait", "reason": "already handed off"}
     return _pick(t, s)
 
