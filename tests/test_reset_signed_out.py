@@ -157,7 +157,8 @@ def test_guest_never_reaches_orders(store, settings):
     # off-topic gets the new off-topic text; a yes hands off; person-asks and anger hand off too
     _, outs, events = guest(store, settings, ("do you sell gift cards?", answers(intent="other")),
                             ("yes", answers(intent="other", accept=1.0)))
-    assert outs[0]["reply"] == ("I can help with order status, returns and password resets. "
+    assert outs[0]["reply"] == ("I can help with order status, returns, password resets, and questions about "
+                                "our return rules and shipping cost. "
                                 "Would you like me to pass your question to a member of our team?")
     assert outs[1]["path"] == "handoff"
     runs.append((None, outs, events))
