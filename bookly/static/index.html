@@ -443,7 +443,8 @@ function daysAgo(isoDate, today) {  // days counted from the store's today, neve
 }
 function showGuestOrders() {  // a signed-out visitor: no orders, just the sign-in line (spec R1)
   for (const el of document.querySelectorAll('.orders .sign-in')) el.remove();
-  for (const s of ['.order-card', '.orders-summary']) $(s).textContent = '';
+  for (const s of ['.order-card', '.orders-summary']) { $(s).textContent = ''; $(s).style.display = 'none'; }
+  $('#orders').parentElement.classList.remove('open');  // the list a shopper opened goes too
   const line = document.createElement('div');
   line.className = 'sign-in';
   line.textContent = 'Sign in to see your orders.';
@@ -451,6 +452,7 @@ function showGuestOrders() {  // a signed-out visitor: no orders, just the sign-
 }
 function showOrderCards(c) {  // the two cards above the shelves, filled from the conversation start
   for (const el of document.querySelectorAll('.orders .sign-in')) el.remove();  // a guest's line goes
+  for (const s of ['.order-card', '.orders-summary']) $(s).style.display = '';  // and the cards come back
   const newest = c.orders[0];
   const label = {processing: 'Preparing', shipped: 'On its way', delivered: 'Delivered'}[newest.status];
   const when = {processing: `Ordered ${daysAgo(newest.order_date, c.today)}`,
