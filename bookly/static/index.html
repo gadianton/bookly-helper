@@ -735,8 +735,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
     const when = `${order} · ${fmtTime(e.model_ms)}`;
     if (e.model === 'jev') {
       const conf = a.intent && a.intent.confidence != null ? ` · ${Number(a.intent.confidence).toFixed(2)}` : '';
-      const mood = [r.person && 'person', r.angry && 'upset'].filter(Boolean).join(' · ');
-      setBox('jev', 'lit', [r.intent + conf, when, ...(mood ? [mood] : [])]);
+      setBox('jev', 'lit', ['8 answers', `in one call · ${fmtTime(e.model_ms)}`, r.intent + conf]);  // spec R1
     } else {
       if (!turnEvents.standby) setBox('jev', 'skipped', ['off: Haiku is triage']);
       setBox('standin', 'lit', [r.intent, when]);
