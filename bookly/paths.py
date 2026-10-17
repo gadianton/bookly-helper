@@ -19,13 +19,13 @@ def new_state() -> dict:
 def pick_path(t: dict, s: dict) -> dict:
     if s["handed_off"]:
         # after a handoff: a decline says goodbye, the team already has anger and person-asks,
-        # and only a new order-status or return request reaches the agent
-        if s["last_reply_kind"] == "closing" and t["declines"] and t["intent"] not in WORK:
+        # and only a new order-status, return or password-reset request reaches the agent
+        if s["last_reply_kind"] == "closing" and t["declines"] and t["intent"] not in (*WORK, "password reset"):
             return {"path": "goodbye", "reason": "declined after the closing question"}
         if t["person"] or t["angry"]:
             return {"path": "wait", "reason": "already handed off"}
         p = _pick(t, s)
-        return p if p["path"] in ("order_status", "return", "clarify_order", "clarify_book") \
+        return p if p["path"] in ("order_status", "return", "clarify_order", "clarify_book", "reset_signed_in") \
             else {"path": "wait", "reason": "already handed off"}
     return _pick(t, s)
 
@@ -37,6 +37,8 @@ def _pick(t: dict, s: dict) -> dict:
     last = s["last_reply_kind"]
     if t["person"] or t["angry"]:
         return go("handoff", "asks for a person" if t["person"] else "angry")
+    if t["intent"] == "password reset":
+        return go("reset_signed_in", "password reset")  # before every other rule, after person and anger
     if last == "closing" and t["declines"] and t["intent"] not in WORK:
         return go("goodbye", "declined after the closing question")
     if last == "scope":
@@ -68,7 +70,13 @@ def _orders_list(orders: list[dict]) -> str:
     )
 
 
-def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False) -> str:
+def mask_email(address: str) -> str:
+    name, _, domain = address.partition("@")
+    return f"{name[:1]}***@{domain}"
+
+
+def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False,
+               email=None) -> str:
     """buttons: the storefront, where the question's buttons already list the orders or books."""
     if path == "goodbye":
         return ("Thanks for chatting with Bookly. The team still has your question and will reply here."
@@ -78,13 +86,15 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, int
     if path == "wait":
         return f"A member of the Bookly team has this conversation now. {wait_message(now)}"
     if path == "scope":
-        return ("I can help with order status and returns. "
+        return ("I can help with order status, returns and password resets. "
                 "Would you like me to pass your question to a member of our team?")
     if path == "signoff":
         return ("No problem. Our team is here Monday to Friday, 9am to 6pm ET, "
                 "if you'd like to ask them later.")
     if path == "clarify_intent":
-        return "Happy to help. Do you need the status of an order, or help with a return?"
+        return "Happy to help. Do you need the status of an order, help with a return, or a password reset?"
+    if path == "reset_signed_in":
+        return f"I've sent a password reset link to {mask_email(email)}. It can take a few minutes to arrive."
     if path == "clarify_order" and buttons and intent == "return":
         return fixed_text("clarify_book", shopper_orders, now)
     if path == "clarify_order" and buttons:

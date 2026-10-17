@@ -111,6 +111,8 @@ class Conversation:
         if pick is not None and pick["intent"] == "done":
             # "No, that's all": the tap settles the goodbye, at any point in the chat
             p = {"path": "goodbye", "reason": "done tapped"}
+        elif pick is not None and pick["intent"] == "password reset":
+            p = {"path": "reset_signed_in", "reason": "password reset tapped"}
         elif pick is not None and not pick.get("order"):
             # a kind-of-help tap always asks which order or book, remembered order or not
             p = {"path": "clarify_book" if pick["intent"] == "return" else "clarify_order",
@@ -120,6 +122,8 @@ class Conversation:
         emit("path", start, **p)
         if p["path"] == "handoff":
             return self._handoff(text, p["reason"], emit, intent=t["intent"])
+        if p["path"] == "reset_signed_in":
+            return self._reset_signed_in(text, emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
             reply = fixed_text(p["path"], self.orders, self.now(), s["handed_off"], intent=t["intent"],
                                buttons=self.buttons)
@@ -127,6 +131,14 @@ class Conversation:
         return self._run_model(text, p["path"], t, emit)
 
     # ---- endings ----
+    def _reset_signed_in(self, text, emit, intent=None):
+        # the link always goes to the email on file, so the send can only succeed
+        start = time.perf_counter()
+        email = self.store.email(self.shopper_id)
+        emit("tool_call", start, name="send_reset_link", source="accounts", input={"email": email}, result="sent")
+        reply = fixed_text("reset_signed_in", self.orders, self.now(), email=email)
+        return self._finish(text, reply, "reset_signed_in", emit, intent=intent)
+
     def _finish(self, text, reply, path, emit, needs_answer=False, offer_pending=False, intent=None,
                 proposed=False):
         s = self.state
@@ -134,9 +146,9 @@ class Conversation:
         s["tag"] = tag_for(path, needs_answer, offer_pending, s["handed_off"])
         if path == "wait":
             self._leave_with_team()
-        # an ending: a handoff, the team-has-it line, the signoff, or a reply-model reply
+        # an ending: a handoff, the team-has-it line, the signoff, the signed-in reset, or a reply-model reply
         # that asks nothing, states no offer this turn and proposes no answers (the stray-text reply included)
-        ending = path in ("handoff", "wait", "signoff") or (
+        ending = path in ("handoff", "wait", "signoff", "reset_signed_in") or (
             path in TOOLS_BY_PATH and not needs_answer and not offer_pending and not proposed)
         if ending:
             if path in TOOLS_BY_PATH:  # the model's own "anything else ...?" goes, so the question matches the buttons

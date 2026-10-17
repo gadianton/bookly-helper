@@ -32,6 +32,9 @@ class Store:
     def name(self, shopper_id: str) -> str:
         return self._shoppers[shopper_id]["name"]
 
+    def email(self, shopper_id: str) -> str | None:
+        return self._shoppers[shopper_id]["email"]
+
     def orders(self, shopper_id: str) -> list[dict]:
         return copy.deepcopy(self._shoppers[shopper_id]["orders"])
 
