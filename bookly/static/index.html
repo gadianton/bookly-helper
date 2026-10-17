@@ -9,7 +9,8 @@
      architecture view's diagram keeps its colours at merge */
   :root { --bg: #FFFFFF; --fg: #12141A; --muted: #5B6170; --card: #FFFFFF; --line: #ECEEF3; --accent: #2344C9; --bot: #FFFFFF; --me: #2344C9; --me-fg: #FFFFFF;
           --ink: #12141A; --surface: #F3F4F7; --surface-2: #F8F9FB; --accent-tint: #EEF2FF; --online: #3FD18A;
-          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; --ease: cubic-bezier(0.23, 1, 0.32, 1); }
+          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; --ease: cubic-bezier(0.23, 1, 0.32, 1);
+          --peek: 0.35; }  /* the share of a cover's width the second cover's left edge is shifted right by (approved in the mock) */
   @font-face { font-family: 'Manrope'; src: url('/static/fonts/manrope.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Bricolage Grotesque'; src: url('/static/fonts/bricolage-grotesque.woff2') format('woff2'); font-weight: 600 700; font-style: normal; font-display: swap; }
   * { box-sizing: border-box; }
@@ -74,6 +75,14 @@
      0 #1E3A5F/#F2EBD9  1 #C2462B/#FFF4E8  2 #F0C64A/#2A2108
      3 #2B2440/#EDE4FF  4 #0F7B6C/#E9FFF8 */
   .cover-block { border-radius: 4px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; }
+
+  /* Order covers (spec R3): the first two books' covers overlapped, the first on top and the
+     second shifted right by --peek of a cover's width; sizes per place via --w/--h (spec R1).
+     A cover that fails to load is replaced by a plain colour rectangle, per book (spec R4). */
+  .order-covers { display: inline-flex; flex: none; vertical-align: middle; }
+  .order-covers > * { display: block; width: var(--w); height: var(--h); border-radius: 4px; object-fit: cover; }
+  .order-covers > :first-child { position: relative; z-index: 1; }
+  .order-covers > :nth-child(2) { margin-left: calc((var(--peek) - 1) * var(--w)); }
 
   /* Staff-pick shelves */
   .shelf-section h2 { margin: 0; font: 700 30px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.02em; }
@@ -388,6 +397,28 @@ function coverBlock(title, size) {  // a coloured block standing in for a cover
   el.textContent = title;
   return el;
 }
+function coverName(title) {  // spec R2: drop "(eBook)", lowercase, runs of non a-z0-9 to "-", trim "-"
+  return title.replace('(eBook)', '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function orderCovers(titles, w, h) {  // the first two books' covers at w x h; each book falls back on its own (spec R3, R4)
+  const span = document.createElement('span');
+  span.className = 'order-covers';
+  span.style.setProperty('--w', w + 'px');
+  span.style.setProperty('--h', h + 'px');
+  for (const title of titles.slice(0, 2)) {
+    const img = document.createElement('img');
+    img.className = 'order-cover';
+    img.src = `/static/covers/${coverName(title)}.jpg`;
+    img.alt = '';  // decoration (spec R5): the titles beside it are read once
+    img.onerror = () => {
+      const rect = document.createElement('span');
+      rect.style.background = coverColour(title)[0];  // today's plain colour, no text
+      img.replaceWith(rect);
+    };
+    span.appendChild(img);
+  }
+  return span;
+}
 function daysAgo(isoDate, today) {  // days counted from the store's today, never the browser's clock
   const n = Math.round((Date.parse(today) - Date.parse(isoDate)) / 86400000);
   return n <= 0 ? 'today' : n === 1 ? '1 day ago' : `${n} days ago`;
@@ -667,7 +698,8 @@ async function startConversation() {
   $('#orders').innerHTML = '';
   for (const o of c.orders) {
     const li = document.createElement('li');
-    li.textContent = `${o.titles.join(', ')} `;
+    li.appendChild(orderCovers(o.titles, 24, 36));
+    li.append(` ${o.titles.join(', ')} `);
     const small = document.createElement('small');
     small.textContent = `${o.id} · ${o.status}`;
     li.appendChild(small);
