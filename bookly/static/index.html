@@ -67,6 +67,7 @@
   .orders-summary .recent { color: var(--muted); font-size: 14px; }
   .all-orders { font-weight: 600; font-size: 14px; margin-top: 6px; cursor: pointer; }
   .orders-list { display: none; border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 4px 20px; }
+  .sign-in { flex: 1 1 100%; padding: 20px; border-radius: 16px; background: #F6F7F9; color: var(--muted); }  /* the guest's line in the orders area (spec R1) */
   .orders-list.open { display: block; }
 
   /* Coloured cover blocks — colour rule: the first title's character codes,
@@ -231,7 +232,7 @@
     </label>
     <div class="header-actions">
       <label class="account">Account
-        <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option></select>
+        <select id="shopper"><option value="maya">Maya</option><option value="riley">Riley</option><option value="guest">Not signed in</option></select>
       </label>
       <div class="switch" role="group" aria-label="View">
         <button type="button" id="view-store" aria-pressed="true">Storefront</button>
@@ -434,7 +435,16 @@ function daysAgo(isoDate, today) {  // days counted from the store's today, neve
   const n = Math.round((Date.parse(today) - Date.parse(isoDate)) / 86400000);
   return n <= 0 ? 'today' : n === 1 ? '1 day ago' : `${n} days ago`;
 }
+function showGuestOrders() {  // a signed-out visitor: no orders, just the sign-in line (spec R1)
+  for (const el of document.querySelectorAll('.orders .sign-in')) el.remove();
+  for (const s of ['.order-card', '.orders-summary']) $(s).textContent = '';
+  const line = document.createElement('div');
+  line.className = 'sign-in';
+  line.textContent = 'Sign in to see your orders.';
+  $('.orders').appendChild(line);
+}
 function showOrderCards(c) {  // the two cards above the shelves, filled from the conversation start
+  for (const el of document.querySelectorAll('.orders .sign-in')) el.remove();  // a guest's line goes
   const newest = c.orders[0];
   const label = {processing: 'Preparing', shipped: 'On its way', delivered: 'Delivered'}[newest.status];
   const when = {processing: `Ordered ${daysAgo(newest.order_date, c.today)}`,
@@ -519,7 +529,8 @@ for (const shelf of [...new Set(BOOKS.map(b => b.shelf))]) {  // the two shelves
 }
 
 const HELP = [{label: "Where's my order", pick: {intent: 'order status'}},
-              {label: 'Return a book', pick: {intent: 'return'}}];
+              {label: 'Return a book', pick: {intent: 'return'}},
+              {label: 'Reset my password', pick: {intent: 'password reset'}}];
 
 function showChoices(list) {
   const wrap = document.createElement('div');
@@ -794,8 +805,9 @@ async function startConversation() {
     li.appendChild(small);
     $('#orders').appendChild(li);
   }
-  showOrderCards(c);
-  add($('#msgs'), 'msg bot', `Hi ${c.name.split(' ')[0]}, what can I help with?`);
+  if (shopper === 'guest') showGuestOrders(); else showOrderCards(c);
+  add($('#msgs'), 'msg bot', shopper === 'guest' ? 'Hi there, what can I help with?'  // spec R1
+                                                 : `Hi ${c.name.split(' ')[0]}, what can I help with?`);
   showChoices(HELP);
 }
 
