@@ -49,6 +49,7 @@ def test_refused_pick_leaves_the_conversation_untouched(placed):
 @pytest.mark.parametrize("shopper,pick,detail", [
     ("maya", "Return a book", "bad pick"),  # not an object: still the 400 a bad pick gets
     ("maya", ["return"], "bad pick"),
+    ("maya", {"intent": "password reset", "order": "BL-10533"}, "bad pick"),  # reset takes no order
     ("nobody", {"intent": "return"}, "unknown shopper"),  # not a server error from the order lookup
 ])
 def test_malformed_pick_or_unknown_shopper_gets_400(shopper, pick, detail):
@@ -66,7 +67,7 @@ def _stream_events(response) -> list[dict]:
     return asyncio.run(drain())
 
 
-def test_ending_stream_holds_the_three_buttons(placed):
+def test_ending_stream_holds_the_four_buttons(placed):
     cid, convo, jev_calls = placed
     convo.jev = fake_triage(answers(intent="unclear"))  # twice unclear: the second miss hands off
     events = []
@@ -78,6 +79,7 @@ def test_ending_stream_holds_the_three_buttons(placed):
     assert next(e for e in events if e["step"] == "choices")["choices"] == [
         {"label": "Where's my order", "pick": {"intent": "order status"}},
         {"label": "Return a book", "pick": {"intent": "return"}},
+        {"label": "Reset my password", "pick": {"intent": "password reset"}},
         {"label": "No, that's all", "pick": {"intent": "done"}},
     ]
 
