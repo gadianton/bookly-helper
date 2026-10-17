@@ -99,7 +99,10 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, int
         return ("I can help with order status, returns, and questions about our return rules and shipping cost. "
                 "Would you like me to pass your question to a member of our team?")
     if path == "return_rules":
-        asked = [k for k in RETURN_RULES if re.search(RULE_WORDS[k], text.lower())]
+        hits = {k for k in RETURN_RULES if re.search(RULE_WORDS[k], text.lower())}
+        if "changed_mind" in hits:
+            hits.add("ask_unread")  # a change-of-mind refund only holds for a new, unread book
+        asked = [k for k in RETURN_RULES if k in hits]
         if len(asked) == 1:
             return S[asked[0]]
         return "Here are Bookly's return rules:\n- " + "\n- ".join(S[k] for k in asked or RETURN_RULES)
