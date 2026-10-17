@@ -79,7 +79,7 @@ def test_fact_answers_are_endings_without_the_model(store, settings):
     events = []
     convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
                          jev=fake_triage(answers(intent="return rules"), answers(intent="shipping cost")))
-    out = convo.send("How long do I have to return a book?", on_event=events.append)
+    out = convo.send("What are your return rules?", on_event=events.append)
     rules = (
         "Here are Bookly's return rules:\n"
         "- Items can be returned up to 30 days after delivery.\n"
@@ -94,12 +94,28 @@ def test_fact_answers_are_endings_without_the_model(store, settings):
     assert out == {"reply": rules + "\n" + CLOSING,
                    "path": "return_rules", "tag": "resolved", "intent": "return rules", "ending": True}
     out = convo.send("How much is shipping?", on_event=events.append)
-    assert out == {"reply": "Shipping is free on orders over $35. Otherwise it's $3.99.\n" + CLOSING,
+    assert out == {"reply": "Shipping is free on orders over $35. Otherwise it's $3.99. eBooks ship free.\n" + CLOSING,
                    "path": "shipping_cost", "tag": "resolved", "intent": "shipping cost", "ending": True}
     assert not [e for e in events if e["step"] in ("model_call", "tool_call")]
     assert convo.anthropic.requests == []  # the fake reply model got no request
     assert convo.state["last_reply_kind"] == "closing"
     assert choices(out, store.orders("maya"), lambda item: False) == NO_MORE
+
+
+def test_narrow_rules_question_gets_the_rules_it_asks_about(store, settings):
+    # one rule asked about: that sentence alone; two: the list of those two, in the list's order
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
+                         jev=fake_triage(*[answers(intent="return rules")] * 3))
+    out = convo.send("How long do I have before I have to return an order?")
+    assert out["reply"] == "Items can be returned up to 30 days after delivery.\n" + CLOSING
+    assert out["path"] == "return_rules" and out["ending"] is True
+    assert convo.send("Can I return an eBook?")["reply"] == \
+        "eBooks and other digital items can't be returned.\n" + CLOSING
+    assert convo.send("What if a gift arrived damaged?")["reply"] == (
+        "Here are Bookly's return rules:\n"
+        "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
+        "plus the original shipping once per order, or we can exchange it for the same title.\n"
+        "- Gift orders and PayPal orders are refunded as Bookly store credit.\n" + CLOSING)
 
 
 def test_done_tap_says_goodbye_without_any_model(store, settings):

@@ -1,5 +1,6 @@
 """Code picks exactly one path per message from the triage result; fixed texts need no model call."""
 
+import re
 from datetime import date
 
 from bookly.hours import wait_message
@@ -9,6 +10,16 @@ from bookly.taps import choices
 WORK = {"order status": "order_status", "return": "return"}
 FACTS = {"return rules": "return_rules", "shipping cost": "shipping_cost"}
 RETURN_RULES = ("outside_window", "changed_mind", "our_error", "ask_unread", "not_returnable", "store_credit")
+# words that tie a rules question to the rule it asks about; no match means the whole list
+# ponytail: keyword match, not a model question (Jev stays at eight questions); add words as demos show misses
+RULE_WORDS = {
+    "outside_window": r"how long|how many days|how much time|\bdays?\b|deadline|time limit|window|\blate\b",
+    "changed_mind": r"change (of|my) mind|changed my mind|return label|label fee|\bfee\b|don'?t want",
+    "our_error": r"damaged|defective|broken|\bwrong\b|torn|misprint",
+    "ask_unread": r"\bunread\b|\bread\b|condition|\bused\b|opened|opening",
+    "not_returnable": r"\be-?books?|digital|audiobook|kindle",
+    "store_credit": r"\bgift|paypal|store credit",
+}
 NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
 CLOSING = "Is there anything else I can help with?"
 
@@ -73,8 +84,10 @@ def _orders_list(orders: list[dict]) -> str:
     )
 
 
-def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False) -> str:
-    """buttons: the storefront, where the question's buttons already list the orders or books."""
+def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False,
+               text="") -> str:
+    """buttons: the storefront, where the question's buttons already list the orders or books.
+    text: the shopper's message, which picks the return rules it asks about."""
     if path == "goodbye":
         return ("Thanks for chatting with Bookly. The team still has your question and will reply here."
                 if handed_off else "Thanks for chatting with Bookly. Have a lovely day!")
@@ -86,7 +99,10 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, int
         return ("I can help with order status, returns, and questions about our return rules and shipping cost. "
                 "Would you like me to pass your question to a member of our team?")
     if path == "return_rules":
-        return "Here are Bookly's return rules:\n- " + "\n- ".join(S[k] for k in RETURN_RULES)
+        asked = [k for k in RETURN_RULES if re.search(RULE_WORDS[k], text.lower())]
+        if len(asked) == 1:
+            return S[asked[0]]
+        return "Here are Bookly's return rules:\n- " + "\n- ".join(S[k] for k in asked or RETURN_RULES)
     if path == "shipping_cost":
         return S["shipping_cost"]
     if path == "signoff":

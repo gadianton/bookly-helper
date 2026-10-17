@@ -122,7 +122,7 @@ class Conversation:
             return self._handoff(text, p["reason"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
             reply = fixed_text(p["path"], self.orders, self.now(), s["handed_off"], intent=t["intent"],
-                               buttons=self.buttons)
+                               buttons=self.buttons, text=text)
             return self._finish(text, reply, p["path"], emit, intent=t["intent"])
         return self._run_model(text, p["path"], t, emit)
 
