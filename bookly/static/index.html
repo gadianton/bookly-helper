@@ -118,7 +118,7 @@
      (3 under the title), 3 in the 88 px boxes (2 under the title); the clamp draws the
      ellipsis on the last row shown, and the full line stays in the element */
   .box-lines { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--rows, 3); max-height: calc(var(--rows, 3) * 18px); }
-  .box[data-box="start"], .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --rows: 2; }
+  .box[data-box="start"], .box[data-box="standin"], .box[data-box="handoff"], .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"], .box[data-box="accounts"] { --rows: 2; }
   .box[data-look="lit"] { background: #FFFFFF; border: 2px solid var(--ink); box-shadow: 0 0 0 4px var(--accent-tint); color: var(--ink); }
   .box[data-look="skipped"] { background: #FFFFFF; border: 2px dashed var(--muted); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
   .box[data-look="idle"] { background: var(--surface); border: 2px dashed var(--line-strong); box-shadow: 0 0 0 4px transparent; color: var(--muted); }
@@ -128,12 +128,12 @@
   .box[data-box="start"], .box[data-box="jev"], .box[data-box="standin"] { --col: 1; }
   .box[data-box="rules"] { --col: 2; }
   .box[data-box="fixed"], .box[data-box="model"], .box[data-box="handoff"] { --col: 3; }
-  .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"] { --col: 4; }
+  .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"], .box[data-box="accounts"] { --col: 4; }
   [data-arrow="storefront-start"], [data-arrow="storefront-jev"], [data-arrow="jev-standin"] { --col: 1; }
   [data-arrow="jev-rules"] { --col: 2; }
   [data-arrow="rules-model"], [data-arrow="rules-fixed"], [data-arrow="rules-handoff"] { --col: 3; }
-  [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"],
-  [data-arrow="to-orders"], [data-arrow="to-policy"], [data-arrow="to-returns"] { --col: 4; }
+  [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"], [data-arrow="tools-accounts"],
+  [data-arrow="to-orders"], [data-arrow="to-policy"], [data-arrow="to-returns"], [data-arrow="to-accounts"] { --col: 4; }
   [data-arrow] { position: absolute; overflow: visible; }
   [data-arrow] .line { fill: none; stroke: var(--line-strong); stroke-width: 2; stroke-linecap: round; }
   [data-arrow] .head { stroke: none; fill: var(--line-strong); }
@@ -283,12 +283,14 @@
       <svg data-arrow="rules-handoff" data-to="handoff" style="left:528px;top:372px" width="124" height="128" viewBox="0 0 124 128"><path class="line" d="M4 0 V124"/><path class="line" d="M4 124 H112"/><path class="head" d="M112 120 L120 124 L112 128 Z"/></svg>
       <svg data-arrow="jev-standin" data-to="standin" style="left:330px;top:372px" width="8" height="80" viewBox="0 0 8 80"><path class="line" d="M4 0 V80"/></svg>
       <div class="standin-label">if Jev is slow</div>
-      <svg data-arrow="tools-stub" data-to="" style="left:800px;top:316px" width="24" height="8" viewBox="0 0 24 8"><path class="line" d="M0 4 H24"/></svg>
-      <svg data-arrow="tools-upper" data-to="orders" style="left:820px;top:192px" width="8" height="128" viewBox="0 0 8 128"><path class="line" d="M4 0 V128"/></svg>
-      <svg data-arrow="tools-lower" data-to="returns" style="left:820px;top:320px" width="8" height="128" viewBox="0 0 8 128"><path class="line" d="M4 0 V128"/></svg>
-      <svg data-arrow="to-orders" data-to="orders" style="left:824px;top:188px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
-      <svg data-arrow="to-policy" data-to="policy" style="left:824px;top:316px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
-      <svg data-arrow="to-returns" data-to="returns" style="left:824px;top:444px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="tools-stub" data-to="" style="left:800px;top:272px" width="24" height="8" viewBox="0 0 24 8"><path class="line" d="M0 4 H24"/></svg>
+      <svg data-arrow="tools-upper" data-to="orders" style="left:820px;top:172px" width="8" height="104" viewBox="0 0 8 104"><path class="line" d="M4 0 V104"/></svg>
+      <svg data-arrow="tools-lower" data-to="returns" style="left:820px;top:276px" width="8" height="104" viewBox="0 0 8 104"><path class="line" d="M4 0 V104"/></svg>
+      <svg data-arrow="tools-accounts" data-to="accounts" style="left:820px;top:380px" width="8" height="104" viewBox="0 0 8 104"><path class="line" d="M4 0 V104"/></svg>
+      <svg data-arrow="to-orders" data-to="orders" style="left:824px;top:168px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-policy" data-to="policy" style="left:824px;top:272px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-returns" data-to="returns" style="left:824px;top:376px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
+      <svg data-arrow="to-accounts" data-to="accounts" style="left:824px;top:480px" width="23" height="8" viewBox="0 0 23 8"><path class="line" d="M0 4 H15"/><path class="head" d="M15 0 L23 4 L15 8 Z"/></svg>
 
       <div class="box" data-box="storefront" data-look="idle" style="left:64px;top:268px;height:104px">
         <div class="box-title">Storefront</div>
@@ -322,16 +324,20 @@
         <div class="box-title">Handoff</div>
         <div class="box-lines">idle</div>
       </div>
-      <div class="box" data-box="orders" data-look="idle" style="left:848px;top:148px;height:88px">
+      <div class="box" data-box="orders" data-look="idle" style="left:848px;top:128px;height:88px">
         <div class="box-title">Orders</div>
         <div class="box-lines">idle</div>
       </div>
-      <div class="box" data-box="policy" data-look="idle" style="left:848px;top:276px;height:88px">
+      <div class="box" data-box="policy" data-look="idle" style="left:848px;top:232px;height:88px">
         <div class="box-title">Return policy</div>
         <div class="box-lines">idle</div>
       </div>
-      <div class="box" data-box="returns" data-look="idle" style="left:848px;top:404px;height:88px">
+      <div class="box" data-box="returns" data-look="idle" style="left:848px;top:336px;height:88px">
         <div class="box-title">Returns</div>
+        <div class="box-lines">idle</div>
+      </div>
+      <div class="box" data-box="accounts" data-look="idle" style="left:848px;top:440px;height:88px">
+        <div class="box-title">Accounts</div>
         <div class="box-lines">idle</div>
       </div>
 
@@ -578,7 +584,7 @@ function setBox(name, look, lines, title) {
 function paintArrows() {  // an arrow is ink while the box it points to is lit, except the two out of Path rules:
   for (const a of document.querySelectorAll('[data-arrow]')) {  // they follow the route path rules picked
     let ink;
-    if (a.dataset.arrow === 'tools-stub') ink = ['orders', 'policy', 'returns'].some(n => document.querySelector(`.box[data-box=${n}]`).dataset.look === 'lit');
+    if (a.dataset.arrow === 'tools-stub') ink = ['orders', 'policy', 'returns', 'accounts'].some(n => document.querySelector(`.box[data-box=${n}]`).dataset.look === 'lit');
     else if (a.dataset.arrow === 'rules-fixed') ink = FIXED_PATHS.includes(turnEvents.path);
     else if (a.dataset.arrow === 'rules-handoff') ink = turnEvents.path === 'handoff';
     else ink = !!a.dataset.to && document.querySelector(`.box[data-box=${a.dataset.to}]`).dataset.look === 'lit';
@@ -611,7 +617,8 @@ function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn start
   }
 }
 
-const FIXED_PATHS = ['scope', 'signoff', 'clarify_intent', 'clarify_order', 'clarify_book', 'wait', 'handoff', 'goodbye'];
+const FIXED_PATHS = ['scope', 'signoff', 'clarify_intent', 'clarify_order', 'clarify_book', 'wait', 'handoff', 'goodbye',
+                     'reset_signed_in', 'ask_email', 'ask_email_again', 'reset_signed_out', 'sign_in'];
 const REASONS = {  // the spec's reason table; the "answer to model" row carries its intent inside the reason
   'already handed off': 'already with a person',
   'accepted the offer to pass the question to the team': 'took the team offer',
@@ -650,6 +657,7 @@ function toolLine(e) {  // the spec's line form per tool and result; a part the 
       : r.result}`;
     case 'return_action': return `return → ${r.result === 'done' ? `done ${r.confirmation}`
       : r.result === 'refused' ? `refused: ${r.why}` : r.result}`;
+    case 'send_reset_link': return `reset link → ${r.result}`;
   }
   return `${e.name} → ${r.result ?? JSON.stringify(e.result)}`;  // any other tool
 }
@@ -772,7 +780,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
   } else if (e.step === 'tool_call') {
     // a handoff tool_call adds nothing (the handoff event after it lights Handoff); a call with
     // no source lights nothing and stays in the step log; the source picks the data box
-    const dataBox = {orders: 'orders', 'return policy': 'policy', returns: 'returns'}[e.source];
+    const dataBox = {orders: 'orders', 'return policy': 'policy', returns: 'returns', accounts: 'accounts'}[e.source];
     if (dataBox && e.name !== 'handoff') {
       turnEvents.calls = turnEvents.calls || {};
       const n = turnEvents.calls[dataBox] = (turnEvents.calls[dataBox] || 0) + 1;
