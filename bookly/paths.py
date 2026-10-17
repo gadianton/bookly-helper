@@ -14,8 +14,11 @@ RETURN_RULES = ("outside_window", "changed_mind", "our_error", "ask_unread", "no
 # ponytail: keyword match, not a model question (Jev stays at eight questions); add words as demos show misses
 RULE_WORDS = {
     "outside_window": r"how long|how many days|how much time|\bdays?\b|deadline|time limit|window|\blate\b",
-    "changed_mind": r"change (of|my) mind|changed my mind|return label|label fee|\bfee\b|don'?t want",
-    "our_error": r"damaged|defective|broken|\bwrong\b|torn|misprint",
+    "changed_mind": r"change (of|my) mind|changed my mind|\blabel\b|\bfee\b|don'?t want",
+    # a label question gets both label rules: $5.99 on a change of mind, free when Bookly erred;
+    # "undamaged", "not damaged" and "nothing wrong" are not about damage
+    "our_error": r"\blabel\b|misprint|(?<!not )(?<!nothing )(?<!nothing is )(?<!nothing's )(?<!n't )"
+                 r"\b(damaged|defective|broken|torn|wrong)\b",
     "ask_unread": r"\bunread\b|\bread\b|condition|\bused\b|opened|opening",
     "not_returnable": r"\be-?books?|digital|audiobook|kindle",
     "store_credit": r"\bgift|paypal|store credit",

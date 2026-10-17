@@ -105,7 +105,7 @@ def test_fact_answers_are_endings_without_the_model(store, settings):
 def test_narrow_rules_question_gets_the_rules_it_asks_about(store, settings):
     # one rule asked about: that sentence alone; two: the list of those two, in the list's order
     convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
-                         jev=fake_triage(*[answers(intent="return rules")] * 4))
+                         jev=fake_triage(*[answers(intent="return rules")] * 6))
     out = convo.send("How long do I have before I have to return an order?")
     assert out["reply"] == "Items can be returned up to 30 days after delivery.\n" + CLOSING
     assert out["path"] == "return_rules" and out["ending"] is True
@@ -122,6 +122,15 @@ def test_narrow_rules_question_gets_the_rules_it_asks_about(store, settings):
         "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
         "and shipping isn't refunded.\n"
         "- Books returned for a change of mind must be new and unread.\n" + CLOSING)
+    # a label question gets both label rules; an undamaged book names no damage rule, so the whole list
+    assert convo.send("Is the return label free?")["reply"] == (
+        "Here are Bookly's return rules:\n"
+        "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
+        "and shipping isn't refunded.\n"
+        "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
+        "plus the original shipping once per order, or we can exchange it for the same title.\n"
+        "- Books returned for a change of mind must be new and unread.\n" + CLOSING)
+    assert convo.send("Can I send back a book that isn't damaged?")["reply"].count("\n- ") == 6
 
 
 def test_done_tap_says_goodbye_without_any_model(store, settings):
