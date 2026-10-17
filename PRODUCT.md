@@ -19,6 +19,7 @@
 - Chosen visual design: Look B (Modern retail) for the storefront and chat, Layout 1 (left-to-right flow) for the architecture view, picked in Claude Design (2026-10-10)
 - Jev (TypeSafe docs): independent questions over the same state go in one request and are answered side by side; yes/no answers carry no separate confidence (distance from 0.5 serves); set confidence cutoffs per action risk, starting near 0.5, and tune them on your own data (2026-10-07)
 - Visual design: Look B (modern retail) for the storefront and chat, Layout 1 (left-to-right flow) for the architecture view (2026-10-10)
+- The chat states only facts the store already publishes (the policy file, the storefront banner), never invented policy; demos after the deadline value breadth on common questions (2026-10-17)
 ## Assumptions
 - Ecommerce support costs: a human-handled ticket about $2.70-5.60 (live chat $10-16), an AI resolution about $0.50-2; realistic net saving 20-35% in year one; where-is-my-order is 30-40% of volume — mostly vendor sources, check against Gartner before quoting (2026-10-07)
 - Main risks of handing ecommerce support to AI: made-up policies or amounts creating refund liability, about 9% of retail returns fraudulent, order lookups leaking across customers, and distrust (87% say access to a person is essential) — vendor and Gartner sources (2026-10-07)
