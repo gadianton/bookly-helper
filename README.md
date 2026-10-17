@@ -1,7 +1,8 @@
 # Bookly support agent
 
 A customer-support agent prototype for Bookly, a fictional online bookstore. It handles two things in depth,
-order status and returns/refunds, and hands everything else to a person or answers with a polite scope reply.
+order status and returns/refunds, answers general return-rule and shipping-cost questions from the store's
+published facts, and hands everything else to a person or answers with a polite scope reply.
 
 The idea is "think fast, act right":
 - **Fast:** every typed message is triaged by Jev (TypeSafe AI's System One model) in about 0.2 s; a storefront tap skips it, except an answer the reply model proposed, which is sent as if typed.
@@ -33,7 +34,7 @@ of the agent, with Jev's answers and the step log under it:
 uv run python -m bookly.server
 ```
 
-Test set (33 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
+Test set (40 scripted conversations against the real models; exits 0 only when no case takes a wrong action):
 
 ```
 uv run python -m bookly.evals
