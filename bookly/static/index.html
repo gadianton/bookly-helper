@@ -588,6 +588,7 @@ function resetBoxes() {
 
 function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn starts when its message is sent
   resetBoxes();
+  showAnswersNote('No Jev answers this turn');  // until a triage or tap event arrives (spec R7)
   if (msg.tap) {
     setBox('storefront', 'lit', [`tapped “${msg.tap}”`]);
     $('#last-turn').textContent = `Last turn: tapped “${msg.tap}” · lit until the next message`;
@@ -644,9 +645,9 @@ function toolLine(e) {  // the spec's line form per tool and result; a part the 
 function answerRows(e) {  // a triage event -> the card's eight rows (spec R3, R4, R5): plain words, how sure Jev is
   const a = e.answers || {};
   const r = e.result || {};
-  const pct = x => `${Math.round(100 * Number(x))}%`;
-  const yesno = (label, p) => `${label}: ${p >= 0.5 ? 'yes' : 'no'} ${pct(p >= 0.5 ? p : 1 - p)}`;
-  const pick = (label, o, word) => `${label}: ${word || o.pick} ${pct(o.confidence)}`;
+  const pct = x => e.model === 'haiku' || x == null ? '' : ` ${Math.round(100 * Number(x))}%`;  // Haiku: no percents (spec R6)
+  const yesno = (label, p) => `${label}: ${p >= 0.5 ? 'yes' : 'no'}${pct(p >= 0.5 ? p : 1 - p)}`;
+  const pick = (label, o, word) => `${label}: ${word || o.pick}${pct(o.confidence)}`;
   const levels = Object.entries(a.mood.levels);  // the highest level wins, ties to the first (as triage.py's combine)
   const mood = levels.reduce(([ml, mp], [l, p]) => p > mp ? [l, p] : [ml, mp]);
   const row = (label, text, overruled) => ({label, text, overruled: !!overruled});
@@ -671,9 +672,9 @@ function answerRows(e) {  // a triage event -> the card's eight rows (spec R3, R
   if (a.reason.pick === 'not said' && r.reason && r.reason !== 'not said')
     reason = row('Return reason', `${pick('Return reason', a.reason)} → ${r.reason} (earlier)`);  // filled from earlier (spec R5)
 
-  let moodRow = row('Mood', `Mood: ${mood[0]} ${pct(mood[1])}`);
+  let moodRow = row('Mood', `Mood: ${mood[0]}${pct(mood[1])}`);
   if (r.angry !== undefined && r.angry !== (mood[0] === 'angry'))
-    moodRow = row('Mood', `Mood: ${mood[0]} ${pct(mood[1])} → ${r.angry ? 'angry' : 'not angry'}`, true);
+    moodRow = row('Mood', `Mood: ${mood[0]}${pct(mood[1])} → ${r.angry ? 'angry' : 'not angry'}`, true);
 
   const flipped = (label, p, res) => {  // a yes/no row the code took the other way (spec R4)
     const word = p >= 0.5 ? 'yes' : 'no';
@@ -709,7 +710,7 @@ function showAnswers(e) {  // draws the card's title and its eight rows
     el.textContent = r.text;  // the whole line stays in the element when its column ellipsises it
     cols.appendChild(el);
   }
-  answersCard("Jev's 8 answers", cols);
+  answersCard(`${e.model === 'haiku' ? 'Haiku' : 'Jev'}'s 8 answers`, cols);  // whose answers these are (spec R6)
 }
 
 function showAnswersNote(text) {  // the title and a note, no rows
@@ -726,6 +727,7 @@ function routeBox(e) {  // the events that light boxes; reply, tag and the rest 
   } else if (e.step === 'tap') {
     turnEvents.tap = true;
     setBox('jev', 'skipped', ['skipped: tap']);
+    showAnswersNote('No Jev call: the tap settled it');  // spec R7
   } else if (e.step === 'triage') {
     turnEvents.triage = true;
     const r = e.result, a = e.answers || {};
