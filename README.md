@@ -12,13 +12,15 @@ The idea is "think fast, act right":
 
 ## Run it
 
-Needs [uv](https://docs.astral.sh/uv/) and two API keys.
+Needs [uv](https://docs.astral.sh/uv/) and the Anthropic key. The TypeSafe key is recommended but optional.
 
 ```
 uv sync
 export ANTHROPIC_API_KEY=...      # console.anthropic.com
-export TYPESAFE_API_KEY=...       # TypeSafe AI, for Jev
+export TYPESAFE_API_KEY=...       # TypeSafe AI, for Jev; optional, recommended
 ```
+
+Without the TypeSafe key, Haiku triages every message, about 0.8 s slower and about as accurately.
 
 Plain chat in the terminal (type messages, `quit` to end). Each reply is followed by the triage, tool calls and timings:
 
@@ -27,7 +29,8 @@ uv run python -m bookly.chat --shopper maya
 ```
 
 Storefront with the pop-up chat, at http://127.0.0.1:8000 (or the next free port when 8000 is taken; the server prints its address); the header's "How it works" switch shows the live diagram
-of the agent, with Jev's answers and the step log under it:
+of the agent, with Jev's answers and the step log under it. Beside the "Live architecture" title sits the "Simulate Jev outage"
+switch: checked, it makes the page's typed messages fail over to Haiku until it is switched off or the page is reloaded:
 
 ```
 uv run python -m bookly.server
