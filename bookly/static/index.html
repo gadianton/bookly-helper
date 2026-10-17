@@ -9,7 +9,8 @@
      architecture view's diagram keeps its colours at merge */
   :root { --bg: #FFFFFF; --fg: #12141A; --muted: #5B6170; --card: #FFFFFF; --line: #ECEEF3; --accent: #2344C9; --bot: #FFFFFF; --me: #2344C9; --me-fg: #FFFFFF;
           --ink: #12141A; --surface: #F3F4F7; --surface-2: #F8F9FB; --accent-tint: #EEF2FF; --online: #3FD18A;
-          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; --ease: cubic-bezier(0.23, 1, 0.32, 1); }
+          --line-strong: #DDE0E7; --accent-hover: #1A339A; --accent-tint-border: #C9D3FB; --ease: cubic-bezier(0.23, 1, 0.32, 1);
+          --peek: 0.35; }  /* the share of a cover's width the second cover's left edge is shifted right by (approved in the mock) */
   @font-face { font-family: 'Manrope'; src: url('/static/fonts/manrope.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Bricolage Grotesque'; src: url('/static/fonts/bricolage-grotesque.woff2') format('woff2'); font-weight: 600 700; font-style: normal; font-display: swap; }
   * { box-sizing: border-box; }
@@ -56,7 +57,6 @@
   /* Orders area */
   .orders { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
   .order-card { flex: 2 1 420px; padding: 20px; border-radius: 16px; background: var(--accent-tint); display: flex; gap: 16px; align-items: center; }
-  .order-card .cover-block { width: 64px; height: 96px; flex: none; }
   .status-label { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
   .order-title { font-weight: 700; font-size: 17px; margin-top: 2px; }
   .order-line { color: var(--muted); font-size: 14px; }
@@ -74,6 +74,14 @@
      0 #1E3A5F/#F2EBD9  1 #C2462B/#FFF4E8  2 #F0C64A/#2A2108
      3 #2B2440/#EDE4FF  4 #0F7B6C/#E9FFF8 */
   .cover-block { border-radius: 4px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; }
+
+  /* Order covers (spec R3): the first two books' covers overlapped, the first on top and the
+     second shifted right by --peek of a cover's width; sizes per place via --w/--h (spec R1).
+     A cover that fails to load is replaced by a plain colour rectangle, per book (spec R4). */
+  .order-covers { display: inline-flex; flex: none; vertical-align: middle; }
+  .order-covers > * { display: block; width: var(--w); height: var(--h); border-radius: 4px; object-fit: cover; }
+  .order-covers > :first-child { position: relative; z-index: 1; }
+  .order-covers > :nth-child(2) { margin-left: calc((var(--peek) - 1) * var(--w)); }
 
   /* Staff-pick shelves */
   .shelf-section h2 { margin: 0; font: 700 30px 'Bricolage Grotesque', sans-serif; letter-spacing: -0.02em; }
@@ -165,7 +173,6 @@
   .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 16px 16px 6px 16px; }
   .msg.reply { max-width: 88%; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .reply-card { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 12px; background: var(--surface); }
-  .reply-card .cover-block { width: 32px; height: 48px; flex: none; border-radius: 3px; }
   .reply-card .text { font-size: 13px; line-height: 1.35; }
   .choices { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; align-self: flex-start; }
   .choice { font-weight: 600; font-size: 14px; padding: 10px 14px; min-height: 40px; border: 1px solid var(--accent-tint-border); border-radius: 12px; background: var(--accent-tint); color: var(--accent); cursor: pointer;
@@ -388,6 +395,28 @@ function coverBlock(title, size) {  // a coloured block standing in for a cover
   el.textContent = title;
   return el;
 }
+function coverName(title) {  // spec R2: drop "(eBook)", lowercase, runs of non a-z0-9 to "-", trim "-"
+  return title.replace('(eBook)', '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function orderCovers(titles, w, h) {  // the first two books' covers at w x h; each book falls back on its own (spec R3, R4)
+  const span = document.createElement('span');
+  span.className = 'order-covers';
+  span.style.setProperty('--w', w + 'px');
+  span.style.setProperty('--h', h + 'px');
+  for (const title of titles.slice(0, 2)) {
+    const img = document.createElement('img');
+    img.className = 'order-cover';
+    img.src = `/static/covers/${coverName(title)}.jpg`;
+    img.alt = '';  // decoration (spec R5): the titles beside it are read once
+    img.onerror = () => {
+      const rect = document.createElement('span');
+      rect.style.background = coverColour(title)[0];  // today's plain colour, no text
+      img.replaceWith(rect);
+    };
+    span.appendChild(img);
+  }
+  return span;
+}
 function daysAgo(isoDate, today) {  // days counted from the store's today, never the browser's clock
   const n = Math.round((Date.parse(today) - Date.parse(isoDate)) / 86400000);
   return n <= 0 ? 'today' : n === 1 ? '1 day ago' : `${n} days ago`;
@@ -400,10 +429,7 @@ function showOrderCards(c) {  // the two cards above the shelves, filled from th
                 delivered: `Delivered ${daysAgo(newest.delivered_date, c.today)}`}[newest.status];
   const card = $('.order-card');
   card.textContent = '';
-  const [bg] = coverColour(newest.titles[0]);  // the mock's orders-card block is a plain colour
-  const block = document.createElement('div');
-  block.className = 'cover-block';
-  block.style.background = bg;
+  const block = orderCovers(newest.titles, 64, 96);  // spec R1: the newest order's covers, 64x96
   const body = document.createElement('div');
   for (const [cls, text] of [['status-label', label], ['order-title', newest.titles.join(', ')],
                               ['order-line', `${newest.id} · ${when}`]]) {
@@ -667,7 +693,8 @@ async function startConversation() {
   $('#orders').innerHTML = '';
   for (const o of c.orders) {
     const li = document.createElement('li');
-    li.textContent = `${o.titles.join(', ')} `;
+    li.appendChild(orderCovers(o.titles, 24, 36));
+    li.append(` ${o.titles.join(', ')} `);
     const small = document.createElement('small');
     small.textContent = `${o.id} · ${o.status}`;
     li.appendChild(small);
@@ -717,9 +744,7 @@ function replyCard(order) {  // the mockup's order card, built from the lookup's
   const titles = order.titles || order.items.map(i => i.title);  // a lookup result carries items
   const card = document.createElement('div');
   card.className = 'reply-card';
-  const block = coverBlock(titles[0]);
-  block.textContent = '';  // the mock's small block is a plain colour: the title sits beside it
-  block.style.color = '';  // no text, so the mock sets no text colour either
+  const block = orderCovers(titles, 32, 48);  // spec R1: the chat card's covers, 32x48
   const text = document.createElement('div');
   text.className = 'text';
   const title = document.createElement('b');
