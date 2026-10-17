@@ -4,6 +4,7 @@ fraud_limit = 3
 fraud_window_days = 90
 
 [sentences]
+shipping_cost = "Shipping is free on orders over $35. Otherwise it's $3.99."
 needs_reason = "To check what I can offer, I need to know why you're returning it."
 not_returnable = "eBooks and other digital items can't be returned."
 not_delivered = "Items can be returned once they have been delivered."

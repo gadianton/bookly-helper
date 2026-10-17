@@ -3,9 +3,12 @@
 from datetime import date
 
 from bookly.hours import wait_message
+from bookly.policy import S
 from bookly.taps import choices
 
 WORK = {"order status": "order_status", "return": "return"}
+FACTS = {"return rules": "return_rules", "shipping cost": "shipping_cost"}
+RETURN_RULES = ("outside_window", "changed_mind", "our_error", "ask_unread", "not_returnable", "store_credit")
 NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
 CLOSING = "Is there anything else I can help with?"
 
@@ -39,6 +42,8 @@ def _pick(t: dict, s: dict) -> dict:
         return go("handoff", "asks for a person" if t["person"] else "angry")
     if last == "closing" and t["declines"] and t["intent"] not in WORK:
         return go("goodbye", "declined after the closing question")
+    if t["intent"] in FACTS:
+        return go(FACTS[t["intent"]], t["intent"])
     if last == "scope":
         if t["accepts"]:
             return go("handoff", "accepted the offer to pass the question to the team")
@@ -78,8 +83,12 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, int
     if path == "wait":
         return f"A member of the Bookly team has this conversation now. {wait_message(now)}"
     if path == "scope":
-        return ("I can help with order status and returns. "
+        return ("I can help with order status, returns, and questions about our return rules and shipping cost. "
                 "Would you like me to pass your question to a member of our team?")
+    if path == "return_rules":
+        return "Here are Bookly's return rules:\n- " + "\n- ".join(S[k] for k in RETURN_RULES)
+    if path == "shipping_cost":
+        return S["shipping_cost"]
     if path == "signoff":
         return ("No problem. Our team is here Monday to Friday, 9am to 6pm ET, "
                 "if you'd like to ask them later.")
