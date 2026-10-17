@@ -74,24 +74,26 @@ def test_questions_get_no_closing_question(store, settings):
     assert choices(out, maya_orders, none_returned) == []
 
 
+ALL_RULES = (
+    "Here are Bookly's return rules:\n"
+    "- Items can be returned up to 30 days after delivery.\n"
+    "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
+    "and shipping isn't refunded.\n"
+    "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
+    "plus the original shipping once per order, or we can exchange it for the same title.\n"
+    "- Books returned for a change of mind must be new and unread.\n"
+    "- eBooks and other digital items can't be returned.\n"
+    "- Gift orders and PayPal orders are refunded as Bookly store credit."
+)
+
+
 def test_fact_answers_are_endings_without_the_model(store, settings):
     # the return-rules and shipping-cost answers: fixed text, closing question, no reply model (R1.3, R2.4)
     events = []
     convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
                          jev=fake_triage(answers(intent="return rules"), answers(intent="shipping cost")))
     out = convo.send("What are your return rules?", on_event=events.append)
-    rules = (
-        "Here are Bookly's return rules:\n"
-        "- Items can be returned up to 30 days after delivery.\n"
-        "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
-        "and shipping isn't refunded.\n"
-        "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
-        "plus the original shipping once per order, or we can exchange it for the same title.\n"
-        "- Books returned for a change of mind must be new and unread.\n"
-        "- eBooks and other digital items can't be returned.\n"
-        "- Gift orders and PayPal orders are refunded as Bookly store credit."
-    )
-    assert out == {"reply": rules + "\n" + CLOSING,
+    assert out == {"reply": ALL_RULES + "\n" + CLOSING,
                    "path": "return_rules", "tag": "resolved", "intent": "return rules", "ending": True}
     out = convo.send("How much is shipping?", on_event=events.append)
     assert out == {"reply": "Shipping is free on orders over $35. Otherwise it's $3.99. eBooks ship free.\n" + CLOSING,
@@ -130,7 +132,7 @@ def test_narrow_rules_question_gets_the_rules_it_asks_about(store, settings):
         "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
         "plus the original shipping once per order, or we can exchange it for the same title.\n"
         "- Books returned for a change of mind must be new and unread.\n" + CLOSING)
-    assert convo.send("Can I send back a book that isn't damaged?")["reply"].count("\n- ") == 6
+    assert convo.send("Can I send back a book that isn't damaged?")["reply"] == ALL_RULES + "\n" + CLOSING
 
 
 def test_done_tap_says_goodbye_without_any_model(store, settings):
