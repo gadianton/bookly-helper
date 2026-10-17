@@ -24,7 +24,7 @@ from bookly.settings import load_settings
 from bookly.store import Store
 from bookly.taps import choices, valid_pick
 
-SHOPPERS = ("maya", "riley")
+SHOPPERS = ("maya", "riley", "guest")
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 settings = load_settings()

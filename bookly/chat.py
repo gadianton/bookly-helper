@@ -46,11 +46,14 @@ def describe(e: dict) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--shopper", choices=["maya", "riley"], default="maya")
+    ap.add_argument("--shopper", choices=["maya", "riley", "guest"], default="maya")
     args = ap.parse_args()
     store = Store(date.today())
     convo = Conversation(args.shopper, store, Ledger(), load_settings())
-    print(f"Signed in as {store.name(args.shopper)}. Type 'quit' to leave.")
+    if args.shopper == "guest":
+        print("Not signed in. Type 'quit' to leave.")
+    else:
+        print(f"Signed in as {store.name(args.shopper)}. Type 'quit' to leave.")
     for line in sys.stdin:
         text = line.strip()
         if text == "quit":
