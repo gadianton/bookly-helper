@@ -101,3 +101,6 @@ question instead of a resolution). Gaps seen around it:
 - **"I want to talk to a human" is triaged as unclear, not other**, by Jev and Haiku. Harmless: the separate
   asks-for-a-person check hands off first.
 - The handoff wait message knows Bookly's hours but not public holidays.
+- **The browser can tell whether a signed-out reset email has an account.** The step log and the "How it works" view
+  show the reset link's result (sent or no account), kept on purpose so the demo shows the link goes only to a real
+  account. A real product would keep that result in server-side logs only.
