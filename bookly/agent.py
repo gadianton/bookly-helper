@@ -10,7 +10,7 @@ from pathlib import Path
 
 from bookly.hours import ET, wait_message
 from bookly.paths import CLOSING, fixed_text, new_state, pick_path, tag_for
-from bookly.triage import anthropic_client, ask_haiku, ask_jev, triage
+from bookly.triage import JevUnavailable, anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
 MAX_MODEL_CALLS = 8
@@ -55,6 +55,11 @@ def _ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000, 1)
 
 
+def _jev_outage(*a):
+    """The simulated outage's Jev stand-in: triage turns this into the standby a real outage shows."""
+    raise JevUnavailable("simulated outage")
+
+
 class Conversation:
     def __init__(self, shopper_id, store, ledger, settings, now=None, anthropic=None, jev=None, buttons=False):
         self.shopper_id, self.store, self.ledger, self.settings = shopper_id, store, ledger, settings
@@ -74,8 +79,10 @@ class Conversation:
         return self._now or datetime.now(ET)
 
     # ---- one customer message ----
-    def send(self, text: str, on_event=lambda e: None, pick: dict | None = None) -> dict:
-        """pick: the storefront tap's checked pick; None = a typed message, exactly as today."""
+    def send(self, text: str, on_event=lambda e: None, pick: dict | None = None,
+             jev_outage: bool = False) -> dict:
+        """pick: the storefront tap's checked pick; None = a typed message, exactly as today.
+        jev_outage: this one typed message is triaged as if Jev failed, through the real standby path."""
         self.turn += 1
         emit = lambda step, start, **kw: on_event({"step": step, "ms": _ms(start), **kw})
         s = self.state
@@ -83,8 +90,11 @@ class Conversation:
         if pick is None:
             start = time.perf_counter()
             haiku = lambda *a: ask_haiku(*a, client=self.anthropic)
+            # the outage's per-message settings copy: the shared settings are never written
+            s_triage = {**self.settings, "triage_model": "jev"} if jev_outage else self.settings
             t = triage(text, self.history[-self.settings["history_messages"]:], self.orders,
-                       {"order": s["kept_order"], "reason": s["kept_reason"]}, self.settings, jev=self.jev, haiku=haiku)
+                       {"order": s["kept_order"], "reason": s["kept_reason"]}, s_triage,
+                       jev=_jev_outage if jev_outage else self.jev, haiku=haiku)
             if t["standby"]:
                 emit("standby", start, why=t["standby"], detail=t["standby_why"])
             emit("triage", start, model=t["model"], answers=t["raw"], model_ms=round(t["ms"], 1),

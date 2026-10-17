@@ -101,7 +101,10 @@
   /* the diagram view: Look B, fixed light colours in both colour settings */
   #arch-view { --ink: #12141A; --muted: #5B6170; --page: #FFFFFF; --surface: #F3F4F7; --line: #ECEEF3; --line-strong: #DDE0E7; --accent: #2344C9; --accent-tint: #EEF2FF; --fail: #C13A2B; background: var(--page); color: var(--ink); font: 13px/18px "Manrope", system-ui, sans-serif; }
   #arch { position: relative; width: 1056px; height: 824px; transform-origin: top left; }
-  .arch-title { position: absolute; left: 64px; top: 28px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
+  /* the title's row: the outage switch sits on the same line, vertically centred in it */
+  .arch-title-row { position: absolute; left: 64px; top: 28px; display: flex; align-items: center; gap: 14px; }
+  .arch-title { font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
+  .arch-title-row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
   #last-turn { position: absolute; left: 64px; top: 62px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #turn-failed { position: absolute; left: 64px; top: 86px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #tools-label { position: absolute; left: 848px; top: 116px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
@@ -262,7 +265,10 @@
   </div>
   <div id="arch-view" class="hidden">
     <div id="arch">
-      <div class="arch-title">Live architecture</div>
+      <div class="arch-title-row">
+        <div class="arch-title">Live architecture</div>
+        <label><input type="checkbox" id="jev-outage"> Simulate Jev outage</label>
+      </div>
       <div id="last-turn">No turn yet · send a message in the chat</div>
       <div id="turn-failed"></div>
       <div id="tools-label">TOOLS</div>
@@ -877,7 +883,8 @@ async function send(text, at, n, pick) {
   turnOrders = null;  // a fresh turn: nothing of the last one may bleed into it
   add($('#panel'), 'ev ev-turn', `> ${text}`);
   const r = await fetch('/chat', {method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text, pick})});
+    body: JSON.stringify({shopper: $('#shopper').value, conversation_id: sent, text, pick,
+                         jev_outage: $('#jev-outage').checked})});
   if (!r.ok) throw new Error(`chat request failed: ${r.status}`);
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
   let buf = '';
@@ -941,6 +948,9 @@ $('#form').onsubmit = e => {
     .catch(() => at === switches && onEvent({step: 'error', error: 'the chat request failed'}));
 };
 let ready = startConversation();
+$('#jev-outage').checked = false;  // Firefox restores a checked box on reload: every load starts with the switch off
+// and after the restore, which lands after this script; a back/forward return (persisted) is no reload, so it keeps its state
+addEventListener('pageshow', e => { if (!e.persisted) $('#jev-outage').checked = false; });
 </script>
 </body>
 </html>

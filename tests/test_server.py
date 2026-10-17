@@ -13,6 +13,7 @@ import bookly.server as server
 from bookly.agent import Conversation
 from bookly.returns import Ledger
 from tests.conftest import FakeReplyModel, answers, fake_triage
+from tests.test_jev_outage import HAIKU
 
 
 @pytest.fixture
@@ -88,6 +89,27 @@ def test_done_pick_accepted_by_chat(placed):
                          pick={"intent": "done"})
     events = _stream_events(server.chat(body))
     assert events[-1]["step"] == "done" and events[-1]["path"] == "goodbye"
+
+
+def test_chat_forwards_outage_flag_to_the_turn(placed):
+    cid, convo, jev_calls = placed
+    convo.anthropic = FakeReplyModel(("triage", HAIKU), ("reply", {"text": "Done.", "needs_answer": False}))
+    body = server.ChatIn(shopper="maya", conversation_id=cid, text="where's my order?", jev_outage=True)
+    events = _stream_events(server.chat(body))
+    standby = next(e for e in events if e["step"] == "standby")
+    tri = next(e for e in events if e["step"] == "triage")
+    assert jev_calls == []
+    assert (standby["why"], standby["detail"]) == ("Jev unavailable", "simulated outage")
+    assert tri["model"] == "haiku"
+
+
+def test_chat_without_outage_field_calls_jev_as_before(placed):
+    cid, convo, jev_calls = placed
+    body = server.ChatIn(shopper="maya", conversation_id=cid, text="where's my order?")
+    events = _stream_events(server.chat(body))
+    assert len(jev_calls) == 1
+    assert not any(e["step"] == "standby" for e in events)
+    assert events[-1]["step"] == "done"
 
 
 def test_free_port_holds_its_port_so_the_next_server_takes_another():
