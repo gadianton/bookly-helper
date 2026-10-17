@@ -100,7 +100,7 @@
   #orders small { color: var(--muted); }
   /* the diagram view: Look B, fixed light colours in both colour settings */
   #arch-view { --ink: #12141A; --muted: #5B6170; --page: #FFFFFF; --surface: #F3F4F7; --line: #ECEEF3; --line-strong: #DDE0E7; --accent: #2344C9; --accent-tint: #EEF2FF; --fail: #C13A2B; background: var(--page); color: var(--ink); font: 13px/18px "Manrope", system-ui, sans-serif; }
-  #arch { position: relative; width: 1056px; height: 760px; transform-origin: top left; }
+  #arch { position: relative; width: 1056px; height: 824px; transform-origin: top left; }
   .arch-title { position: absolute; left: 64px; top: 28px; font: 700 22px "Bricolage Grotesque", system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink); }
   #last-turn { position: absolute; left: 64px; top: 62px; width: 932px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #turn-failed { position: absolute; left: 64px; top: 86px; width: 932px; font-weight: 600; color: var(--fail); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -150,15 +150,16 @@
   [data-arrow].ink .line, [data-arrow].ink .head { transition-duration: 200ms;
                                                    transition-delay: calc(100ms + 40ms * var(--col)); }
   .standin-label { position: absolute; left: 346px; top: 404px; width: 96px; font-size: 12px; line-height: 16px; color: var(--muted); }
-  /* the answers card (spec R2): left of the step log in the bottom strip, two columns of four;
-     a row keeps one line and ends in an ellipsis when too long, its full text staying in the element */
-  #answers { position: absolute; left: 64px; top: 588px; width: 560px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; }
+  /* the answers card (spec R2): left of the step log in the bottom strip, one column of the eight rows,
+     as tall as the title and eight 18 px rows need (12 + 18 + 8 x 18 + 12 + 2 = 188 px); a row keeps
+     one line and ends in an ellipsis when too long, its full text staying in the element */
+  #answers { position: absolute; left: 64px; top: 588px; width: 324px; height: 188px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; }
   .answers-title { font-weight: 700; }
   .answers-note { color: var(--muted); }
-  .answers-cols { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 18px); grid-auto-flow: column; column-gap: 16px; }  /* column-major: the left four, then the right four */
+  .answers-rows { display: grid; grid-template-rows: repeat(8, 18px); }
   .answer { line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .answer.overruled { color: var(--muted); }  /* a row the code overruled (spec R4) */
-  #panel { position: absolute; left: 636px; top: 588px; width: 360px; height: 124px; padding: 12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
+  #panel { position: absolute; left: 400px; top: 588px; width: 596px; height: 188px; padding:12px 14px; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; font: 12px/18px ui-monospace, monospace; color: var(--ink); overflow-wrap: anywhere; overflow: auto; }
   .ev { padding: 3px 0; border-bottom: 1px dashed var(--line); }
   #panel .ev { white-space: pre-wrap; }
   #panel .ev:last-child { border-bottom: 0; }
@@ -333,8 +334,8 @@
         <div class="box-lines">idle</div>
       </div>
 
-      <section id="answers" aria-label="Jev's answers">
-        <div class="answers-title">Jev's 8 answers</div>
+      <section id="answers" aria-label="Jev decisions">
+        <div class="answers-title">Jev decisions</div>
         <div class="answers-note">No message yet</div>
       </section>
       <aside id="panel" aria-label="Step log"></aside>
@@ -702,22 +703,22 @@ function answersCard(title, body) {  // the card's title and either the rows or 
 }
 
 function showAnswers(e) {  // draws the card's title and its eight rows
-  const cols = document.createElement('div');
-  cols.className = 'answers-cols';
+  const rows = document.createElement('div');
+  rows.className = 'answers-rows';
   for (const r of answerRows(e)) {
     const el = document.createElement('div');
     el.className = r.overruled ? 'answer overruled' : 'answer';
-    el.textContent = r.text;  // the whole line stays in the element when its column ellipsises it
-    cols.appendChild(el);
+    el.textContent = r.text;  // the whole line stays in the element when the card ellipsises it
+    rows.appendChild(el);
   }
-  answersCard(`${e.model === 'haiku' ? 'Haiku' : 'Jev'}'s 8 answers`, cols);  // whose answers these are (spec R6)
+  answersCard(`${e.model === 'haiku' ? 'Haiku' : 'Jev'} decisions`, rows);  // whose answers these are (spec R6)
 }
 
 function showAnswersNote(text) {  // the title and a note, no rows
   const note = document.createElement('div');
   note.className = 'answers-note';
   note.textContent = text;
-  answersCard("Jev's 8 answers", note);
+  answersCard('Jev decisions', note);
 }
 
 function routeBox(e) {  // the events that light boxes; reply, tag and the rest stay step-log only
@@ -897,14 +898,14 @@ async function send(text, at, n, pick) {
 }
 
 $('#bubble').onclick = () => { $('#chat').classList.toggle('open'); $('#input').focus(); };
-function fit() {  // scale the fixed 1056x760 drawing to the window, keeping the 412 px chat strip clear
+function fit() {  // scale the fixed 1056x824 drawing to the window, keeping the 412 px chat strip clear
   const w = innerWidth, hh = $('main').offsetTop;  // everything above the views: the header and any strip over it
   document.documentElement.style.setProperty('--header-h', hh + 'px');  // the white view fills below the header
-  const s = w >= 1000 ? Math.min(1, (w - 412) / 1056, (innerHeight - hh) / 760)
+  const s = w >= 1000 ? Math.min(1, (w - 412) / 1056, (innerHeight - hh) / 824)
                       : Math.min(1, w / 1056);
   $('#arch').style.transform = `scale(${s})`;
   $('#arch-view').style.width = 1056 * s + 'px';  // the view's box is the scaled drawing, so the page doesn't scroll
-  $('#arch-view').style.height = 760 * s + 'px';
+  $('#arch-view').style.height = 824 * s + 'px';
 }
 addEventListener('resize', fit);
 function setView(name) {
