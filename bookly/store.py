@@ -35,6 +35,13 @@ class Store:
     def email(self, shopper_id: str) -> str | None:
         return self._shoppers[shopper_id]["email"]
 
+    def account_for(self, address: str) -> str | None:
+        """The shopper id whose email this is, case-insensitively with end punctuation stripped;
+        None when no shopper's email matches, so the caller can't tell who has an account."""
+        a = address.strip(".,;:!?()<>\"'").lower()
+        return next((sid for sid, s in self._shoppers.items()
+                     if s["email"] and s["email"].lower() == a), None)
+
     def orders(self, shopper_id: str) -> list[dict]:
         return copy.deepcopy(self._shoppers[shopper_id]["orders"])
 

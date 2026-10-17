@@ -13,7 +13,8 @@ CLOSING = "Is there anything else I can help with?"
 def new_state() -> dict:
     return {"handed_off": False, "last_reply_kind": None, "last_model_intent": None,
             "kept_order": None, "kept_reason": None, "reason_item": None, "tag": None,
-            "book": None}  # the tapped book {"item_id", "title"}: set by a book tap, gone with its order
+            "book": None,  # the tapped book {"item_id", "title"}: set by a book tap, gone with its order
+            "email_asked": False, "email_misses": 0}  # a signed-out visitor's pending email question
 
 
 def pick_path(t: dict, s: dict) -> dict:
@@ -25,7 +26,8 @@ def pick_path(t: dict, s: dict) -> dict:
         if t["person"] or t["angry"]:
             return {"path": "wait", "reason": "already handed off"}
         p = _pick(t, s)
-        return p if p["path"] in ("order_status", "return", "clarify_order", "clarify_book", "reset_signed_in") \
+        return p if p["path"] in ("order_status", "return", "clarify_order", "clarify_book", "reset_signed_in",
+                                  "reset_signed_out", "ask_email", "ask_email_again", "sign_in") \
             else {"path": "wait", "reason": "already handed off"}
     return _pick(t, s)
 
@@ -37,6 +39,20 @@ def _pick(t: dict, s: dict) -> dict:
     last = s["last_reply_kind"]
     if t["person"] or t["angry"]:
         return go("handoff", "asks for a person" if t["person"] else "angry")
+    if s.get("guest"):
+        # a signed-out visitor: the pending email question reads every typed message, and a reset
+        # never touches the shopper data (the signed-out reset, spec R4)
+        if s["email_asked"]:
+            if t.get("email"):
+                return go("reset_signed_out", "email address given")
+            if t["declines"]:
+                return go("goodbye", "nothing more needed")
+            if t["intent"] in WORK:
+                return go("sign_in", "not signed in")
+            s["email_misses"] += 1
+            return go("ask_email_again" if s["email_misses"] < 2 else "handoff", "no email address in the answer")
+        if t["intent"] == "password reset":
+            return go("reset_signed_out" if t.get("email") else "ask_email", "password reset")
     if t["intent"] == "password reset":
         return go("reset_signed_in", "password reset")  # before every other rule, after person and anger
     if last == "closing" and t["declines"] and t["intent"] not in WORK:
@@ -54,6 +70,8 @@ def _pick(t: dict, s: dict) -> dict:
         return go("handoff", "no order picked after the order question")
     if last == "model_question" and t["intent"] in ("unclear", "other") and s["last_model_intent"] in WORK:
         return go(WORK[s["last_model_intent"]], f"answer to the reply model's question ({s['last_model_intent']})")
+    if s.get("guest") and t["intent"] in WORK:
+        return go("sign_in", "not signed in")  # an order or return never reaches the order lookups (spec R5)
     if t["intent"] == "other":
         return go("scope", "off-topic")
     if t["intent"] == "unclear":
@@ -73,6 +91,16 @@ def _orders_list(orders: list[dict]) -> str:
 def mask_email(address: str) -> str:
     name, _, domain = address.partition("@")
     return f"{name[:1]}***@{domain}"
+
+
+def find_email(text: str) -> str | None:
+    """The first email address in the text: a run of non-space characters with one @ and a dot
+    after it, punctuation stuck to its ends stripped."""
+    for word in text.split():
+        w = word.strip(".,;:!?()<>\"'")
+        if w.count("@") == 1 and "." in w.partition("@")[2]:
+            return w
+    return None
 
 
 def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False,
@@ -95,6 +123,15 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, int
         return "Happy to help. Do you need the status of an order, help with a return, or a password reset?"
     if path == "reset_signed_in":
         return f"I've sent a password reset link to {mask_email(email)}. It can take a few minutes to arrive."
+    if path == "reset_signed_out":
+        # the same text whether a link was sent or not, so nothing reveals who has a Bookly account
+        return "If that email has a Bookly account, a reset link is on its way."
+    if path == "ask_email":
+        return "Which email address do you use for Bookly?"
+    if path == "ask_email_again":
+        return "That doesn't look like an email address. Which email do you use for Bookly?"
+    if path == "sign_in":
+        return "Please sign in to check an order or start a return."
     if path == "clarify_order" and buttons and intent == "return":
         return fixed_text("clarify_book", shopper_orders, now)
     if path == "clarify_order" and buttons:
@@ -110,6 +147,7 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, int
 def tag_for(path: str, needs_answer: bool, offer_pending: bool, handed_off: bool) -> str:
     if handed_off or path in ("handoff", "wait"):
         return "handed off"
-    if path in ("scope", "signoff", "clarify_intent", "clarify_order", "clarify_book") or offer_pending or needs_answer:
+    if path in ("scope", "signoff", "clarify_intent", "clarify_order", "clarify_book", "ask_email",
+                "ask_email_again", "sign_in") or offer_pending or needs_answer:
         return "asked"
     return "resolved"
