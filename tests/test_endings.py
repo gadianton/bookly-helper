@@ -80,10 +80,21 @@ def test_fact_answers_are_endings_without_the_model(store, settings):
     convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
                          jev=fake_triage(answers(intent="return rules"), answers(intent="shipping cost")))
     out = convo.send("How long do I have to return a book?", on_event=events.append)
-    assert out == {"reply": fixed_text("return_rules", store.orders("maya"), NOW) + "\n" + CLOSING,
+    rules = (
+        "Here are Bookly's return rules:\n"
+        "- Items can be returned up to 30 days after delivery.\n"
+        "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
+        "and shipping isn't refunded.\n"
+        "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
+        "plus the original shipping once per order, or we can exchange it for the same title.\n"
+        "- Books returned for a change of mind must be new and unread.\n"
+        "- eBooks and other digital items can't be returned.\n"
+        "- Gift orders and PayPal orders are refunded as Bookly store credit."
+    )
+    assert out == {"reply": rules + "\n" + CLOSING,
                    "path": "return_rules", "tag": "resolved", "intent": "return rules", "ending": True}
     out = convo.send("How much is shipping?", on_event=events.append)
-    assert out == {"reply": fixed_text("shipping_cost", store.orders("maya"), NOW) + "\n" + CLOSING,
+    assert out == {"reply": "Shipping is free on orders over $35. Otherwise it's $3.99.\n" + CLOSING,
                    "path": "shipping_cost", "tag": "resolved", "intent": "shipping cost", "ending": True}
     assert not [e for e in events if e["step"] in ("model_call", "tool_call")]
     assert convo.anthropic.requests == []  # the fake reply model got no request
