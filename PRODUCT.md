@@ -8,6 +8,7 @@
 - Deliver a working Bookly customer-support agent prototype plus a 3-5 slide pitch deck, as a GitHub repo with run instructions and a 2-minute recording (2026-10-07)
 - The storefront chat is quick access to many kinds of help; the page itself shows what a shopper can see there, such as an order's status, without pushing them into the chat (2026-10-10)
 - The live architecture view serves both the 2-minute recording, where it must make its point unaided in seconds, and live interview demos Jonathan narrates (2026-10-17)
+- Live demos show handoffs the reply model or the return policy triggers mid-turn (such as a customer disputing the return policy), not only handoffs the path rules pick (2026-10-17)
 ## Workflows
 ### Parallel branches (2026-10-10)
 1. Work runs in parallel task folders (git worktrees), one branch each, often with several storefront servers wanted at once
