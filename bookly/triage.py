@@ -13,7 +13,7 @@ import anthropic
 from typesafe_sdk import (Choice, Noul, RetryPolicy, Score, TypeSafeAPITimeoutError, TypeSafeAuthenticationError,
                           TypeSafeClient, TypeSafeError)
 
-INTENTS = ["order status", "return", "other", "unclear"]
+INTENTS = ["order status", "return", "return rules", "shipping cost", "other", "unclear"]
 MOODS = ["calm", "annoyed", "angry"]
 # Descriptions go to Jev: undescribed, it read "I didn't like it" as "not said".
 REASONS = {
@@ -40,9 +40,16 @@ def jev_questions(order_ids: list[str]) -> dict:
     return {
         "intent": Choice(
             instructions="What does the customer want help with in their latest message, read with the conversation so far? "
-            "'order status' = where an order is or when it arrives; 'return' = returning, refunding or exchanging a book, "
-            "including answers to the agent's return questions or offers; 'other' = anything else; "
-            "'unclear' = can't tell what they want.",
+            "'order status' = where an order is or when it arrives, including a question about the customer's own "
+            "order that names no order; 'return' = returning, refunding or exchanging a book, including answers to "
+            "the agent's return questions or offers, a wish to return something ('how do I return a book?'), and any "
+            "message that names one of their books or orders in a return context; 'return rules' = a question about "
+            "the store's return rules in general, such as how long they have to return a book or what can be returned, "
+            "that names none of their books or orders and does not ask to start a return; 'shipping cost' = a question "
+            "about what shipping costs in general, naming none of their orders or books; 'other' = anything else, "
+            "including general questions about the store's delivery times or destinations, and a question about the "
+            "shipping charged on one of their orders, which is 'other' and never 'shipping cost' because it names one "
+            "of their orders; 'unclear' = can't tell what they want.",
             criteria={i: None for i in INTENTS},
         ),
         "clear": Noul(instructions="Read with the conversation, is it clear what kind of help the customer wants "
