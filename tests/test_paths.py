@@ -25,6 +25,8 @@ def t(intent="order status", person=False, angry=False, accepts=False, declines=
         (t(intent="shipping cost", order="can't tell", pick="can't tell"), {"last_reply_kind": "clarify_order"}, "shipping_cost"),
         (t(intent="shipping cost"), {"last_reply_kind": "offer"}, "shipping_cost"),
         (t(intent="return rules"), {"handed_off": True}, "wait"),
+        (t(intent="shipping cost"), {"guest": True, "email_asked": True}, "shipping_cost"),
+        (t(intent="return rules"), {"guest": True, "email_asked": True, "email_misses": 1}, "return_rules"),
         (t(intent="other", declines=True), {"last_reply_kind": "clarify_intent"}, "scope"),
         (t(intent="other"), {"last_reply_kind": "closing"}, "scope"),
         (t(intent="other", accepts=True), {"last_reply_kind": "scope"}, "handoff"),

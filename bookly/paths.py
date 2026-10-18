@@ -58,6 +58,9 @@ def _pick(t: dict, s: dict) -> dict:
     last = s["last_reply_kind"]
     if t["person"] or t["angry"]:
         return go("handoff", "asks for a person" if t["person"] else "angry")
+    if t["intent"] in FACTS and not (last == "closing" and t["declines"]):
+        # spec R4: after person, anger and the closing decline, ahead of every other rule, the pending email included
+        return go(FACTS[t["intent"]], t["intent"])
     if s.get("guest"):
         # a signed-out visitor: the pending email question reads every typed message, and a reset
         # never touches the shopper data (the signed-out reset, spec R4)
@@ -76,8 +79,6 @@ def _pick(t: dict, s: dict) -> dict:
         return go("reset_signed_in", "password reset")  # before every other rule, after person and anger
     if last == "closing" and t["declines"] and t["intent"] not in WORK:
         return go("goodbye", "declined after the closing question")
-    if t["intent"] in FACTS:
-        return go(FACTS[t["intent"]], t["intent"])
     if last == "scope":
         if t["accepts"]:
             return go("handoff", "accepted the offer to pass the question to the team")
