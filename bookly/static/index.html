@@ -225,7 +225,7 @@
 </style>
 </head>
 <body>
-<div class="top-strip">Free shipping on orders over $35 &middot; 30-day returns</div>
+<div class="top-strip">Free shipping on orders over $35, otherwise $3.99 &middot; eBooks ship free &middot; 30-day returns</div>
 <header>
   <div class="bar">
     <h1>bookly</h1>
@@ -629,7 +629,8 @@ function startTurn(msg) {  // msg: the typed text, or {tap: label}; a turn start
 }
 
 const FIXED_PATHS = ['scope', 'signoff', 'clarify_intent', 'clarify_order', 'clarify_book', 'wait', 'handoff', 'goodbye',
-                     'reset_signed_in', 'ask_email', 'ask_email_again', 'reset_signed_out', 'sign_in'];
+                     'reset_signed_in', 'ask_email', 'ask_email_again', 'reset_signed_out', 'sign_in',
+                     'return_rules', 'shipping_cost'];
 const REASONS = {  // the spec's reason table; the "answer to model" row carries its intent inside the reason
   'already handed off': 'already with a person',
   'accepted the offer to pass the question to the team': 'took the team offer',

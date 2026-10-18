@@ -1,11 +1,28 @@
 """Code picks exactly one path per message from the triage result; fixed texts need no model call."""
 
+import re
 from datetime import date
 
 from bookly.hours import wait_message
+from bookly.policy import S
 from bookly.taps import choices
 
 WORK = {"order status": "order_status", "return": "return"}
+FACTS = {"return rules": "return_rules", "shipping cost": "shipping_cost"}
+RETURN_RULES = ("outside_window", "changed_mind", "our_error", "ask_unread", "not_returnable", "store_credit")
+# words that tie a rules question to the rule it asks about; no match means the whole list
+# ponytail: keyword match, not a model question (Jev stays at eight questions); add words as demos show misses
+RULE_WORDS = {
+    "outside_window": r"how long|how many days|how much time|\bdays?\b|deadline|time limit|window|\blate\b",
+    "changed_mind": r"change (of|my) mind|changed my mind|\blabel\b|\bfee\b|don'?t want",
+    # a label question gets both label rules: $5.99 on a change of mind, free when Bookly erred;
+    # "undamaged", "not damaged" and "nothing wrong" are not about damage
+    "our_error": r"\blabel\b|misprint|(?<!not )(?<!nothing )(?<!nothing is )(?<!nothing's )(?<!n't )"
+                 r"\b(damaged|defective|broken|torn|wrong)\b",
+    "ask_unread": r"\bunread\b|\bread\b|condition|\bused\b|opened|opening",
+    "not_returnable": r"\be-?books?|digital|audiobook|kindle",
+    "store_credit": r"\bgift|paypal|store credit",
+}
 NOT_AN_ORDER = {"can't tell", "names an order not in this list"}
 CLOSING = "Is there anything else I can help with?"
 
@@ -41,6 +58,9 @@ def _pick(t: dict, s: dict) -> dict:
     last = s["last_reply_kind"]
     if t["person"] or t["angry"]:
         return go("handoff", "asks for a person" if t["person"] else "angry")
+    if t["intent"] in FACTS and not (last == "closing" and t["declines"]):
+        # spec R4: after person, anger and the closing decline, ahead of every other rule, the pending email included
+        return go(FACTS[t["intent"]], t["intent"])
     if s.get("guest"):
         # a signed-out visitor: the pending email question reads every typed message, and a reset
         # never touches the shopper data (the signed-out reset, spec R4)
@@ -106,8 +126,9 @@ def find_email(text: str) -> str | None:
 
 
 def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, intent=None, buttons=False,
-               email=None) -> str:
-    """buttons: the storefront, where the question's buttons already list the orders or books."""
+               email=None, text="") -> str:
+    """buttons: the storefront, where the question's buttons already list the orders or books.
+    text: the shopper's message, which picks the return rules it asks about."""
     if path == "goodbye":
         return ("Thanks for chatting with Bookly. The team still has your question and will reply here."
                 if handed_off else "Thanks for chatting with Bookly. Have a lovely day!")
@@ -116,8 +137,19 @@ def fixed_text(path: str, shopper_orders: list[dict], now, handed_off=False, int
     if path == "wait":
         return f"A member of the Bookly team has this conversation now. {wait_message(now)}"
     if path == "scope":
-        return ("I can help with order status, returns and password resets. "
+        return ("I can help with order status, returns, password resets, and questions about our return rules "
+                "and shipping cost. "
                 "Would you like me to pass your question to a member of our team?")
+    if path == "return_rules":
+        hits = {k for k in RETURN_RULES if re.search(RULE_WORDS[k], text.lower())}
+        if "changed_mind" in hits:
+            hits.add("ask_unread")  # a change-of-mind refund only holds for a new, unread book
+        asked = [k for k in RETURN_RULES if k in hits]
+        if len(asked) == 1:
+            return S[asked[0]]
+        return "Here are Bookly's return rules:\n- " + "\n- ".join(S[k] for k in asked or RETURN_RULES)
+    if path == "shipping_cost":
+        return S["shipping_cost"]
     if path == "signoff":
         return ("No problem. Our team is here Monday to Friday, 9am to 6pm ET, "
                 "if you'd like to ask them later.")

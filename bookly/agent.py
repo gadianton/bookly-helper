@@ -9,7 +9,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from bookly.hours import ET, wait_message
-from bookly.paths import CLOSING, fixed_text, find_email, new_state, pick_path, tag_for
+from bookly.paths import CLOSING, FACTS, fixed_text, find_email, new_state, pick_path, tag_for
 from bookly.triage import JevUnavailable, anthropic_client, ask_haiku, ask_jev, triage
 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
@@ -116,7 +116,9 @@ class Conversation:
         if pick is not None:  # a tap settles the book too: named item -> that book, no item -> none
             s["book"] = next(({"item_id": pick["item"], "title": i["title"]}
                               for o in self.orders for i in o["items"] if i["item_id"] == pick.get("item")), None)
-        if t["raw"]["reason"]["pick"] != "not said":  # a reason said now applies to the next book quoted
+        # a reason said now applies to the next book quoted; a general rules question ("what if a book arrives
+        # damaged?") names no book of theirs, so the return in progress keeps its own reason
+        if t["raw"]["reason"]["pick"] != "not said" and t["intent"] not in FACTS:
             s["kept_reason"], s["reason_item"] = t["raw"]["reason"]["pick"], None
 
         start = time.perf_counter()
@@ -143,7 +145,7 @@ class Conversation:
             return self._reset_signed_out(text, t["email"], emit, intent=t["intent"])
         if p["path"] not in TOOLS_BY_PATH:
             reply = fixed_text(p["path"], self.orders, self.now(), s["handed_off"], intent=t["intent"],
-                               buttons=self.buttons)
+                               buttons=self.buttons, text=text)
             return self._finish(text, reply, p["path"], emit, intent=t["intent"])
         return self._run_model(text, p["path"], t, emit)
 
@@ -176,9 +178,11 @@ class Conversation:
             s["email_misses"] = 0
         if path == "wait":
             self._leave_with_team()
-        # an ending: a handoff, the team-has-it line, the signoff, the two resets, the sign-in reply,
-        # or a reply-model reply that asks nothing, states no offer this turn and proposes no answers
-        ending = path in ("handoff", "wait", "signoff", "reset_signed_in", "reset_signed_out", "sign_in") or (
+        # an ending: a handoff, the team-has-it line, the signoff, the two resets, the sign-in reply, the two fact
+        # answers, or a reply-model reply that asks nothing, states no offer this turn and proposes no answers
+        # (the stray-text reply included)
+        ending = path in ("handoff", "wait", "signoff", "reset_signed_in", "reset_signed_out", "sign_in",
+                          "return_rules", "shipping_cost") or (
             path in TOOLS_BY_PATH and not needs_answer and not offer_pending and not proposed)
         if ending:
             if path in TOOLS_BY_PATH:  # the model's own "anything else ...?" goes, so the question matches the buttons

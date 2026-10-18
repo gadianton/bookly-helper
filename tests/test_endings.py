@@ -75,6 +75,67 @@ def test_questions_get_no_closing_question(store, settings):
     assert choices(out, maya_orders, none_returned) == []
 
 
+ALL_RULES = (
+    "Here are Bookly's return rules:\n"
+    "- Items can be returned up to 30 days after delivery.\n"
+    "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
+    "and shipping isn't refunded.\n"
+    "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
+    "plus the original shipping once per order, or we can exchange it for the same title.\n"
+    "- Books returned for a change of mind must be new and unread.\n"
+    "- eBooks and other digital items can't be returned.\n"
+    "- Gift orders and PayPal orders are refunded as Bookly store credit."
+)
+
+
+def test_fact_answers_are_endings_without_the_model(store, settings):
+    # the return-rules and shipping-cost answers: fixed text, closing question, no reply model (R1.3, R2.4)
+    events = []
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
+                         jev=fake_triage(answers(intent="return rules"), answers(intent="shipping cost")))
+    out = convo.send("What are your return rules?", on_event=events.append)
+    assert out == {"reply": ALL_RULES + "\n" + CLOSING,
+                   "path": "return_rules", "tag": "resolved", "intent": "return rules", "ending": True}
+    out = convo.send("How much is shipping?", on_event=events.append)
+    assert out == {"reply": "Shipping is free on orders over $35. Otherwise it's $3.99. eBooks ship free.\n" + CLOSING,
+                   "path": "shipping_cost", "tag": "resolved", "intent": "shipping cost", "ending": True}
+    assert not [e for e in events if e["step"] in ("model_call", "tool_call")]
+    assert convo.anthropic.requests == []  # the fake reply model got no request
+    assert convo.state["last_reply_kind"] == "closing"
+    assert choices(out, store.orders("maya"), lambda item: False) == NO_MORE
+
+
+def test_narrow_rules_question_gets_the_rules_it_asks_about(store, settings):
+    # one rule asked about: that sentence alone; two: the list of those two, in the list's order
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=FakeReplyModel(),
+                         jev=fake_triage(*[answers(intent="return rules")] * 6))
+    out = convo.send("How long do I have before I have to return an order?")
+    assert out["reply"] == "Items can be returned up to 30 days after delivery.\n" + CLOSING
+    assert out["path"] == "return_rules" and out["ending"] is True
+    assert convo.send("Can I return an eBook?")["reply"] == \
+        "eBooks and other digital items can't be returned.\n" + CLOSING
+    assert convo.send("What if a gift arrived damaged?")["reply"] == (
+        "Here are Bookly's return rules:\n"
+        "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
+        "plus the original shipping once per order, or we can exchange it for the same title.\n"
+        "- Gift orders and PayPal orders are refunded as Bookly store credit.\n" + CLOSING)
+    # a change-of-mind question also gets the new-and-unread condition that the refund depends on
+    assert convo.send("What if I changed my mind after reading a book?")["reply"] == (
+        "Here are Bookly's return rules:\n"
+        "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
+        "and shipping isn't refunded.\n"
+        "- Books returned for a change of mind must be new and unread.\n" + CLOSING)
+    # a label question gets both label rules; an undamaged book names no damage rule, so the whole list
+    assert convo.send("Is the return label free?")["reply"] == (
+        "Here are Bookly's return rules:\n"
+        "- Books returned for a change of mind are refunded at the item price minus a $5.99 return label, "
+        "and shipping isn't refunded.\n"
+        "- If a book arrived damaged, defective or wrong, we send a free return label and refund the item price "
+        "plus the original shipping once per order, or we can exchange it for the same title.\n"
+        "- Books returned for a change of mind must be new and unread.\n" + CLOSING)
+    assert convo.send("Can I send back a book that isn't damaged?")["reply"] == ALL_RULES + "\n" + CLOSING
+
+
 def test_done_tap_says_goodbye_without_any_model(store, settings):
     # a resolved order-status answer, then the "No, that's all" tap (R3.1)
     events = []
@@ -140,6 +201,22 @@ def test_model_closing_line_not_doubled(store, settings):
         assert out["ending"] is True
         assert choices(out, store.orders("maya"), lambda item: False) == NO_MORE
     assert convo.state["last_reply_kind"] == "closing"
+
+
+def test_rules_answer_keeps_the_return_in_progress(store, settings):
+    # a rules answer mid-return clears neither the kept order nor the kept reason (R4.3)
+    model = FakeReplyModel(("reply", {"text": "Why are you returning it?", "needs_answer": True}),
+                           ("reply", {"text": "Why are you returning it?", "needs_answer": True}))
+    convo = Conversation("maya", store, Ledger(), settings, now=NOW, anthropic=model,
+                         jev=fake_triage(answers(intent="return", order="BL-10406", reason="changed mind"),
+                                         answers(intent="return rules", reason="damaged"),
+                                         answers(intent="return")))
+    assert convo.send("I want to return Circe")["path"] == "return"
+    # the rules question reads as "damaged", but it is about the rules, not about Circe
+    assert convo.send("What if a book arrives damaged?")["path"] == "return_rules"
+    assert convo.send("I'd like to go ahead with the return")["path"] == "return"
+    assert '"order_this_message_is_about": "BL-10406"' in model.requests[-1]["system"]
+    assert '"return_reason_from_conversation": "changed mind"' in model.requests[-1]["system"]
 
 
 ADDED = "I've added this to what the team already has. " + wait_message(NOW)
