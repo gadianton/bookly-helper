@@ -134,7 +134,8 @@
   .box[data-box="orders"], .box[data-box="policy"], .box[data-box="returns"], .box[data-box="accounts"] { --col: 4; }
   [data-arrow="storefront-start"], [data-arrow="storefront-jev"], [data-arrow="jev-standin"] { --col: 1; }
   [data-arrow="jev-rules"] { --col: 2; }
-  [data-arrow="rules-model"], [data-arrow="rules-fixed"], [data-arrow="rules-handoff"] { --col: 3; }
+  [data-arrow="rules-model"], [data-arrow="rules-fixed"], [data-arrow="rules-handoff"],
+  [data-arrow="model-handoff"] { --col: 3; }
   [data-arrow="tools-stub"], [data-arrow="tools-upper"], [data-arrow="tools-lower"], [data-arrow="tools-accounts"],
   [data-arrow="to-orders"], [data-arrow="to-policy"], [data-arrow="to-returns"], [data-arrow="to-accounts"] { --col: 4; }
   [data-arrow] { position: absolute; overflow: visible; }
@@ -287,6 +288,7 @@
       <svg data-arrow="rules-model" data-to="model" style="left:604px;top:316px" width="47" height="8" viewBox="0 0 47 8"><path class="line" d="M0 4 H39"/><path class="head" d="M39 0 L47 4 L39 8 Z"/></svg>
       <svg data-arrow="rules-fixed" data-to="fixed" style="left:528px;top:164px" width="124" height="104" viewBox="0 0 124 104"><path class="line" d="M4 4 V104"/><path class="line" d="M4 4 H112"/><path class="head" d="M112 0 L120 4 L112 8 Z"/></svg>
       <svg data-arrow="rules-handoff" data-to="handoff" style="left:528px;top:372px" width="124" height="128" viewBox="0 0 124 128"><path class="line" d="M4 0 V124"/><path class="line" d="M4 124 H112"/><path class="head" d="M112 120 L120 124 L112 128 Z"/></svg>
+      <svg data-arrow="model-handoff" data-to="handoff" style="left:722px;top:372px" width="8" height="80" viewBox="0 0 8 80"><path class="line" d="M4 0 V72"/><path class="head" d="M0 72 L4 80 L8 72 Z"/></svg>
       <svg data-arrow="jev-standin" data-to="standin" style="left:330px;top:372px" width="8" height="80" viewBox="0 0 8 80"><path class="line" d="M4 0 V80"/></svg>
       <div class="standin-label">if Jev is slow</div>
       <svg data-arrow="tools-stub" data-to="" style="left:800px;top:272px" width="24" height="8" viewBox="0 0 24 8"><path class="line" d="M0 4 H24"/></svg>
@@ -589,12 +591,13 @@ function setBox(name, look, lines, title) {
   paintArrows();
 }
 
-function paintArrows() {  // an arrow is ink while the box it points to is lit, except the two out of Path rules:
-  for (const a of document.querySelectorAll('[data-arrow]')) {  // they follow the route path rules picked
+function paintArrows() {  // an arrow is ink while the box it points to is lit, except the two out of Path rules
+  for (const a of document.querySelectorAll('[data-arrow]')) {  // and model-handoff: the model handed off, not the rules
     let ink;
     if (a.dataset.arrow === 'tools-stub') ink = ['orders', 'policy', 'returns', 'accounts'].some(n => document.querySelector(`.box[data-box=${n}]`).dataset.look === 'lit');
     else if (a.dataset.arrow === 'rules-fixed') ink = FIXED_PATHS.includes(turnEvents.path);
     else if (a.dataset.arrow === 'rules-handoff') ink = turnEvents.path === 'handoff';
+    else if (a.dataset.arrow === 'model-handoff') ink = document.querySelector('.box[data-box=handoff]').dataset.look === 'lit' && turnEvents.path !== 'handoff';
     else ink = !!a.dataset.to && document.querySelector(`.box[data-box=${a.dataset.to}]`).dataset.look === 'lit';
     a.classList.toggle('ink', ink);
   }
