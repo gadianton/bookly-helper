@@ -13,22 +13,26 @@ The idea is "think fast, act right":
 
 ## Run it
 
-Needs [uv](https://docs.astral.sh/uv/) and the Anthropic key. The TypeSafe key is recommended but optional.
+Quick start, from a fresh clone:
 
 ```
-uv sync
 export ANTHROPIC_API_KEY=...      # console.anthropic.com
-export TYPESAFE_API_KEY=...       # TypeSafe AI, for Jev; optional, recommended
+uv run python -m bookly.chat --shopper maya
+```
+
+That opens the plain chat in the terminal (type messages, `quit` to end; `--shopper guest` chats as the
+signed-out visitor). Each reply is followed by the triage, tool calls and timings.
+
+No uv yet? Install it with `curl -LsSf https://astral.sh/uv/install.sh | sh` ([other ways](https://docs.astral.sh/uv/)).
+`uv run` installs the packages by itself the first time, so a separate `uv sync` is optional.
+
+Optional, recommended: the TypeSafe key turns on Jev, the faster triage model.
+
+```
+export TYPESAFE_API_KEY=...       # TypeSafe AI, for Jev
 ```
 
 Without the TypeSafe key, Haiku triages every message, about 0.8 s slower and about as accurately.
-
-Plain chat in the terminal (type messages, `quit` to end; `--shopper guest` chats as the signed-out visitor).
-Each reply is followed by the triage, tool calls and timings:
-
-```
-uv run python -m bookly.chat --shopper maya
-```
 
 Storefront with the pop-up chat, at http://127.0.0.1:8000 (or the next free port when 8000 is taken; the server prints its address); the header's "How it works" switch shows the live diagram
 of the agent, with Jev's answers and the step log under it. Beside the "Live architecture" title sits the "Simulate Jev outage"
