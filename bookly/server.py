@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 from bookly.agent import Conversation
 from bookly.returns import Ledger
-from bookly.settings import load_settings
+from bookly.settings import load_settings, require_anthropic_key
 from bookly.store import Store
 from bookly.taps import choices, valid_pick
 
@@ -121,6 +121,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--triage-model", choices=["jev", "haiku"], help="override triage_model in settings.toml")
     args = ap.parse_args()
+    require_anthropic_key()
     if args.triage_model:
         settings["triage_model"] = args.triage_model
     sock = free_port()
