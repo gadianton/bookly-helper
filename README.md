@@ -101,9 +101,13 @@ The return policy is modelled on Barnes & Noble's (`bookly/policy.toml`). Detail
 
 ## Known gaps
 
-The last test-set run passed 38 of 39 cases with no wrong action and one miss (a status case ended with a
-question instead of a resolution). Gaps seen around it:
+The last test-set run (2026-10-19) passed 44 of 46 cases, with 0 wrong actions and 2 misses only. Gaps seen
+around it:
 
+- **`status-pick-after-question`:** after Maya named which order she meant, the chat ended on another question
+  instead of giving the status.
+- **`return-paypal-store-credit`:** after Maya said "yes, refund it please" for a damaged book, the refund was not
+  recorded and the chat ended on a question instead.
 - **Jev occasionally doesn't answer.** About 1 message in 49 during the test-set runs (reported as HTTP 503 "model is
   unavailable"); Haiku stands in, about 0.8 s slower.
 - **"I want to talk to a human" is triaged as unclear, not other**, by Jev and Haiku. Harmless: the separate
