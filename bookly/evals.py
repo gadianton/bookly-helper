@@ -12,7 +12,7 @@ from statistics import median
 
 from bookly.agent import Conversation
 from bookly.returns import Ledger
-from bookly.settings import load_settings
+from bookly.settings import load_settings, require_anthropic_key
 from bookly.store import Store
 from bookly.triage import JevUnavailable, anthropic_client, ask_haiku, ask_jev, combine
 
@@ -129,6 +129,7 @@ def main(argv=None) -> int:
     ap.add_argument("--dump", help="write every raw Jev answer here, one JSON line per message")
     ap.add_argument("--verbose", action="store_true", help="print every reply")
     args = ap.parse_args(argv)
+    require_anthropic_key()
     cases = json.loads(CASES.read_text())
     if args.case:
         cases = [c for c in cases if c["id"] == args.case]

@@ -7,7 +7,7 @@ from datetime import date
 
 from bookly.agent import Conversation
 from bookly.returns import Ledger
-from bookly.settings import load_settings
+from bookly.settings import load_settings, require_anthropic_key
 from bookly.store import Store
 
 
@@ -48,6 +48,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--shopper", choices=["maya", "riley", "guest"], default="maya")
     args = ap.parse_args()
+    require_anthropic_key()
     store = Store(date.today())
     convo = Conversation(args.shopper, store, Ledger(), load_settings())
     if args.shopper == "guest":
