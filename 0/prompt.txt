@@ -1,0 +1,1 @@
+Grab the slides pdf from my Downloads folder and put them into the root of this project directory. Then go ahead and create a branch and a pull request, and then merge that.
