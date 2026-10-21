@@ -16,9 +16,12 @@ PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
 MAX_MODEL_CALLS = 8
 # a reply's last sentence when it is a question with "anything else" in it: one that opens with "anything else"
 # ("Anything else I can help with?") or opens as a question ("Is there a problem with it, or is there something
-# else ...?"); any other sentence may carry the answer too ("It shipped Monday and is there anything else?"), so it stays
-_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)(?:(?:is|are|can|could|do|does|did|would|will|was|need|want)\b"
-                          r"[^.!?\n]*)?\b(?:any|some)thing else[^.!?\n]*\?\s*$", re.IGNORECASE)
+# else ...?", "And may I help with anything else?", "Let me know if there's anything else?"); any other sentence may
+# carry the answer too ("It shipped Monday and is there anything else?"), so it stays
+_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)(?:(?:and|so|also|oh|now|otherwise)\b,?\s*)?"
+                          r"(?:(?:is|are|am|can|could|do|does|did|would|will|was|were|may|might|shall|should|have|has"
+                          r"|need|want|let me know|feel free)\b[^.!?\n]*)?"
+                          r"\b(?:any|some)thing else[^.!?\n]*\?\s*$", re.IGNORECASE)
 
 _TOOLS = {
     "lookup_order": {"description": "Look up one of the signed-in shopper's orders by id.",
