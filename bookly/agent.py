@@ -15,8 +15,10 @@ from bookly.triage import JevUnavailable, anthropic_client, ask_haiku, ask_jev, 
 PROMPT = (Path(__file__).parent / "reply_prompt.md").read_text()
 MAX_MODEL_CALLS = 8
 # a reply's last sentence when it is a question with "anything else" in it, such as "Anything else I can help with?";
-# a sentence with a comma, colon or dash before "anything else" may carry the answer too, so it stays
-_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)[^.!?\n,;:—–-]*anything else[^.!?\n]*\?\s*$", re.IGNORECASE)
+# a sentence with a comma, colon or dash before "anything else" may carry the answer too, so it stays,
+# unless it opens as a question ("Is there a problem with it, or is there something else ...?")
+_OWN_CLOSING = re.compile(r"(?:^|(?<=[.!?\n])\s*)(?:[^.!?\n,;:—–-]*|(?:is|are|can|could|do|does|would|will|was)\b"
+                          r"[^.!?\n]*)\b(?:any|some)thing else[^.!?\n]*\?\s*$", re.IGNORECASE)
 
 _TOOLS = {
     "lookup_order": {"description": "Look up one of the signed-in shopper's orders by id.",
