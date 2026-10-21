@@ -187,6 +187,7 @@ def test_model_closing_line_not_doubled(store, settings):
         ("where is The Midnight Library?", answers(order=M)),
         ("where is The Midnight Library?", answers(order=M)),
         ("where is The Midnight Library?", answers(order=M)),
+        ("where is The Midnight Library?", answers(order=M)),
     ], [
         ("reply", {"text": "Your order has shipped. Anything else I can help with?", "needs_answer": False}),
         ("reply", {"text": "Your order has shipped.", "needs_answer": False}),
@@ -199,6 +200,7 @@ def test_model_closing_line_not_doubled(store, settings):
         ("reply", {"text": "It was delivered. May I help with anything else?", "needs_answer": False}),
         ("reply", {"text": "It was delivered. And is there anything else you need?", "needs_answer": False}),
         ("reply", {"text": "Let me know if there's anything else I can help with?", "needs_answer": False}),
+        ("reply", {"text": "It was delivered. Feel free to ask if you need anything else?", "needs_answer": False}),
     ])
     # the model's own "anything else" question is replaced by the closing line (R2.1)
     assert outs[0]["reply"] == "Your order has shipped.\n" + CLOSING
@@ -216,6 +218,7 @@ def test_model_closing_line_not_doubled(store, settings):
     assert outs[7]["reply"] == "It was delivered.\n" + CLOSING
     assert outs[8]["reply"] == "It was delivered.\n" + CLOSING
     assert outs[9]["reply"] == CLOSING
+    assert outs[10]["reply"] == "It was delivered.\n" + CLOSING
     for out in outs:
         assert out["ending"] is True
         assert choices(out, store.orders("maya"), lambda item: False) == NO_MORE
